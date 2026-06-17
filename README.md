@@ -145,6 +145,7 @@ This prototype focuses on the core Wayland-safe architecture:
 - wlroots/niri/Hyprland layer-shell overlay when available
 - GNOME/KDE fallback window
 - compact key-combination rendering with configurable horizontal alignment
+- consecutive identical shortcut/function-key bubbles are merged as `Key xN`
 - basic typed-text aggregation for letters, digits, punctuation, and spaces
 - startup placeholder bubble for easier fallback-window placement
 

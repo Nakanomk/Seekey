@@ -11,6 +11,12 @@ typedef struct {
     GString *typing_text;
     guint typing_remove_timeout_id;
     guint typing_idle_timeout_id;
+    GtkWidget *last_bubble;
+    guint last_bubble_id;
+    guint last_bubble_count;
+    guint last_bubble_timeout_id;
+    gboolean last_bubble_fading;
+    char last_combo[256];
     SeekeyInput *input;
     SeekeyConfig config;
     guint next_id;
@@ -37,6 +43,24 @@ static gboolean remove_typing_bubble(gpointer data);
 static void bubble_free(gpointer data);
 static void typing_timeout_free(gpointer data);
 
+static void detach_last_bubble(AppState *state)
+{
+    state->last_bubble = NULL;
+    state->last_bubble_id = 0;
+    state->last_bubble_count = 0;
+    state->last_bubble_timeout_id = 0;
+    state->last_bubble_fading = FALSE;
+    state->last_combo[0] = '\0';
+}
+
+static void cancel_last_bubble_timeout(AppState *state)
+{
+    if (state->last_bubble_timeout_id != 0) {
+        g_source_remove(state->last_bubble_timeout_id);
+        state->last_bubble_timeout_id = 0;
+    }
+}
+
 static gboolean should_fade(const SeekeyConfig *config)
 {
     return g_strcmp0(config->disappear, "fade") == 0 && config->fade_ms > 0;
@@ -52,6 +76,11 @@ static gboolean remove_bubble(gpointer data)
         next->id = bubble->id;
         next->fade_phase = TRUE;
         gtk_widget_add_css_class(bubble->widget, "fading");
+        if (bubble->state->last_bubble == bubble->widget &&
+            bubble->state->last_bubble_id == bubble->id) {
+            bubble->state->last_bubble_timeout_id = 0;
+            bubble->state->last_bubble_fading = TRUE;
+        }
         g_timeout_add_full(G_PRIORITY_DEFAULT,
                            bubble->state->config.fade_ms,
                            remove_bubble,
@@ -63,6 +92,10 @@ static gboolean remove_bubble(gpointer data)
     GtkWidget *parent = gtk_widget_get_parent(bubble->widget);
     if (parent != NULL) {
         gtk_box_remove(GTK_BOX(parent), bubble->widget);
+    }
+    if (bubble->state->last_bubble == bubble->widget &&
+        bubble->state->last_bubble_id == bubble->id) {
+        detach_last_bubble(bubble->state);
     }
     return G_SOURCE_REMOVE;
 }
@@ -205,6 +238,10 @@ static void trim_bubbles(AppState *state)
         if (child == state->placeholder) {
             state->placeholder = NULL;
         }
+        if (child == state->last_bubble) {
+            cancel_last_bubble_timeout(state);
+            detach_last_bubble(state);
+        }
         gtk_box_remove(GTK_BOX(state->box), child);
     }
 }
@@ -222,6 +259,50 @@ static void remove_placeholder(AppState *state)
     state->placeholder = NULL;
 }
 
+static guint schedule_bubble_timeout(AppState *state, GtkWidget *widget, guint id)
+{
+    Bubble *bubble = g_new0(Bubble, 1);
+    bubble->state = state;
+    bubble->widget = g_object_ref(widget);
+    bubble->id = id;
+    return g_timeout_add_full(G_PRIORITY_DEFAULT,
+                              state->config.duration_ms,
+                              remove_bubble,
+                              bubble,
+                              bubble_free);
+}
+
+static gboolean try_merge_last_bubble(AppState *state, const char *combo)
+{
+    if (state->last_bubble == NULL ||
+        state->last_bubble_fading ||
+        gtk_widget_get_parent(state->last_bubble) == NULL ||
+        g_strcmp0(state->last_combo, combo) != 0) {
+        return FALSE;
+    }
+
+    state->last_bubble_count++;
+    char label[320];
+    g_snprintf(label, sizeof(label), "%s x%u", combo, state->last_bubble_count);
+    gtk_label_set_text(GTK_LABEL(state->last_bubble), label);
+
+    cancel_last_bubble_timeout(state);
+    state->last_bubble_timeout_id =
+        schedule_bubble_timeout(state, state->last_bubble, state->last_bubble_id);
+    return TRUE;
+}
+
+static void remember_last_bubble(AppState *state, GtkWidget *widget, const char *combo)
+{
+    state->last_bubble = widget;
+    state->last_bubble_id = ++state->next_id;
+    state->last_bubble_count = 1;
+    state->last_bubble_fading = FALSE;
+    g_strlcpy(state->last_combo, combo, sizeof(state->last_combo));
+    state->last_bubble_timeout_id =
+        schedule_bubble_timeout(state, widget, state->last_bubble_id);
+}
+
 static void on_key_event(const KeyEventMessage *event, gpointer user_data)
 {
     AppState *state = user_data;
@@ -237,6 +318,7 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
     }
 
     if (typed != NULL) {
+        detach_last_bubble(state);
         if (state->typing_label == NULL ||
             gtk_widget_get_parent(state->typing_label) == NULL) {
             cancel_active_typing_idle_timeout(state);
@@ -263,6 +345,10 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
     clear_typing_group(state);
     state->typing_remove_timeout_id = 0;
 
+    if (try_merge_last_bubble(state, event->combo)) {
+        return;
+    }
+
     GtkWidget *label = gtk_label_new(event->combo);
     gtk_label_set_single_line_mode(GTK_LABEL(label), TRUE);
     gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
@@ -270,15 +356,7 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
     gtk_box_append(GTK_BOX(state->box), label);
     trim_bubbles(state);
 
-    Bubble *bubble = g_new0(Bubble, 1);
-    bubble->state = state;
-    bubble->widget = g_object_ref(label);
-    bubble->id = ++state->next_id;
-    g_timeout_add_full(G_PRIORITY_DEFAULT,
-                       state->config.duration_ms,
-                       remove_bubble,
-                       bubble,
-                       bubble_free);
+    remember_last_bubble(state, label, event->combo);
 }
 
 static void install_css(const SeekeyConfig *config)
