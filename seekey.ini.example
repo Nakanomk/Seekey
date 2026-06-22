@@ -1,0 +1,137 @@
+# Seekey configuration
+#
+# Seekey reads configuration from ./seekey.ini in the current working
+# directory (project-local). Use `./seekey --init-config` to create one
+# with defaults. Pass `--config <path>` to use a different file.
+#
+# Comments: lines starting with `#` or `;` are ignored.
+
+[general]
+# ---------------------------------------------------------------------------
+# Common settings (most users only need to touch these)
+# ---------------------------------------------------------------------------
+
+# How long a key bubble stays visible (milliseconds).
+duration-ms=1200
+
+# Pause after typing before the next character starts a new text bubble.
+typing-idle-ms=650
+
+# Fade animation length when disappear=fade. Set to 0 to skip the fade.
+fade-ms=180
+
+# Bottom margin in layer-shell mode (pixels from the bottom edge).
+margin=96
+
+# Horizontal offset from the anchored left/right edge. Ignored when align=center.
+margin-horizontal=0
+
+# Maximum number of bubbles shown at once. Older bubbles are trimmed.
+max-items=5
+
+# layer-shell mode:
+#   auto     use layer-shell if available, fall back to a normal window
+#   required use layer-shell and exit if unavailable (stable across workspaces)
+#   off      always use a normal undecorated window
+layer-shell=auto
+
+# Built-in color theme. Individual [style] color keys override the preset.
+# Presets: default, nord, dracula, catppuccin, monokai, light
+theme=default
+
+# Stack repeated identical bubbles as "Ctrl+C x3" instead of separate bubbles.
+merge-repeats=true
+
+# Update a modifier-only bubble when more modifiers or a non-modifier key is
+# added (so "Ctrl" becomes "Ctrl + C" instead of two separate bubbles).
+merge-modifiers=true
+
+# Show mouse button clicks and scroll events as bubbles (default off).
+# Set to true to overlay mouse activity; leave false for keyboard-only.
+show-mouse=false
+
+[style]
+# ---------------------------------------------------------------------------
+# Advanced: layout and appearance
+# ---------------------------------------------------------------------------
+
+# Bubble row alignment: left, center, or right.
+align=right
+
+# Bubble removal animation: instant removes immediately, fade uses fade-ms.
+disappear=fade
+
+spacing=7
+overlay-padding=12
+
+# Minimum bubble width (0 = content-based, otherwise pixels).
+key-min-width=0
+
+key-padding-x=14
+key-padding-y=8
+key-radius=6
+key-border-width=1
+key-font-px=20
+key-font-weight=700
+typing-max-width=480
+
+# Fallback window size when layer-shell is unavailable.
+window-width=720
+window-height=160
+
+# ---------------------------------------------------------------------------
+# Advanced: colors (GTK CSS color values)
+#   These override the theme preset. Remove or comment out a key to fall
+#   back to the preset. Acceptable values: #rrggbb, named CSS colors,
+#   or alpha(#rrggbb, 0.86) etc.
+# ---------------------------------------------------------------------------
+foreground=#f7f7f2
+background=alpha(#111318, 0.86)
+border-color=alpha(#ffffff, 0.18)
+
+# GTK CSS box-shadow. Examples:
+#   0 7px 22px rgba(0, 0, 0, 0.30)
+#   0 4px 10px black
+shadow=0 7px 22px alpha(#000000, 0.30)
+
+# Placeholder bubble (shown when no keys are pressed; helps position
+# the fallback window). Style is fully themable too.
+placeholder-text=Seekey
+placeholder-foreground=alpha(#f7f7f2, 0.74)
+placeholder-background=alpha(#111318, 0.56)
+placeholder-border-color=alpha(#ffffff, 0.14)
+
+# ---------------------------------------------------------------------------
+# Optional: override key icons with Unicode glyphs
+#   Key names match the labels shown in bubbles (Backspace, Enter, Space,
+#   Tab, Esc, Delete, arrow keys, etc.). Remove this section or comment
+#   out every key to use the built-in defaults.
+# ---------------------------------------------------------------------------
+[icons]
+Backspace="⌫"
+Enter="↵"
+Space="␣"
+Tab="↹"
+Esc="⎋"
+Delete="⌦"
+Up="↑"
+Down="↓"
+Left="←"
+Right="→"
+
+# ---------------------------------------------------------------------------
+# Optional: Matugen integration
+#   Any color / text field in this file can use the @matugen:<role> syntax
+#   to pull a color from matugen's colors.json (default at
+#   ~/.cache/matugen/colors.json). Append @<float> to wrap the result in
+#   alpha(...). See README §Matugen integration for full details.
+#
+#   Uncomment the lines below to enable; the values shown are illustrative.
+# ---------------------------------------------------------------------------
+# [style]
+# foreground=@matugen:on_surface
+# background=@matugen:surface@0.86
+# border-color=@matugen:outline
+# placeholder-foreground=@matugen:on_surface@0.74
+# placeholder-background=@matugen:surface@0.56
+# placeholder-border-color=@matugen:outline_variant

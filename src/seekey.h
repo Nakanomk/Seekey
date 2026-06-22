@@ -36,6 +36,7 @@ typedef struct {
     gboolean force;
     gboolean print_config;
     gboolean validate_config;
+    gboolean xdg_config;
     gboolean merge_repeats;
     gboolean merge_modifiers;
     gboolean show_mouse;
@@ -70,6 +71,7 @@ typedef struct {
     char placeholder_background[64];
     char placeholder_border_color[64];
     char config_path[512];
+    char matugen_path[512];
     IconOverride icon_overrides[SEEKEY_MAX_ICON_OVERRIDES];
     guint icon_override_count;
 } SeekeyConfig;

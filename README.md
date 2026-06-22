@@ -24,6 +24,241 @@ For the overlay window:
   windows may require a compositor/window-rule setting because standard Wayland
   intentionally limits client-side always-on-top control.
 
+## Quick start
+
+```sh
+# Build
+make
+
+# Optional: drop a starter config in the current directory
+./seekey --init-config
+
+# Edit interactively (TUI)
+./seekey --config-tui
+
+# Run
+./seekey
+```
+
+## Configuration
+
+Seekey reads a single INI file. The lookup order is:
+
+1. `--config <path>` (explicit, highest priority)
+2. `<cwd>/seekeyini` (project-local file)
+3. Built-in defaults (no file is read or written)
+
+This means the configuration lives next to the binary you are running, which
+keeps each project independent and avoids cluttering `~/.config/`. There is no
+implicit XDG fallback; if you want a global config, point `--config` at it
+or symlink `./seekey.ini` to one.
+
+A complete sample with all keys and explanations is at
+[seekey.ini.example](seekey.ini.example). You can generate a defaults-only copy
+with:
+
+```sh
+./seekey --init-config
+./seekey --init-config --force   # overwrite an existing file
+```
+
+`--init-config` writes to `./seekey.ini` by default. Use `--init-config --xdg`
+once to bootstrap a config at `~/.config/seekey/config.ini` and then symlink
+or pass `--config` to it.
+
+### Useful configuration commands
+
+```sh
+./seekey --print-config         # show the effective configuration and exit
+./seekey --validate-config      # validate the loaded configuration
+./seekey --init-config          # create ./seekey.ini with current settings
+```
+
+`--print-config` shows where the configuration came from:
+
+```ini
+# source: project
+# path: /home/you/project/seekey.ini
+[general]
+...
+```
+
+## Matugen integration
+
+[Matugen](https://github.com/InioX/matugen) generates a Material You color
+palette from a single wallpaper image. Seekey can pick up those colors at
+startup by referencing them in `seekey.ini`:
+
+```ini
+[style]
+foreground=@matugen:on_surface
+background=@matugen:surface@0.86
+border-color=@matugen:outline
+placeholder-foreground=@matugen:on_surface@0.74
+```
+
+The `@matugen:<role>` syntax is resolved to the hex value from matugen's
+`colors.json`. The optional `@<float>` suffix wraps the result in
+`alpha(<hex>, <float>)` for GTK CSS:
+
+```text
+@matugen:surface         → #1a1a1a
+@matugen:surface@0.86    → alpha(#1a1a1a, 0.86)
+@matugen:missing_key     → @matugen:missing_key   (kept verbatim, see warning)
+```
+
+Seekey looks for the matugen JSON in this order:
+
+1. `--matugen <path>` on the command line
+2. `$MATUGEN_COLORS` environment variable
+3. `$XDG_CACHE_HOME/matugen/colors.json` (default matugen output)
+4. `~/.cache/matugen/colors.json` (fallback)
+
+A minimal matugen config that writes the JSON to the default location looks
+like this (`~/.config/matugen/config.toml`):
+
+```toml
+[config]
+reload_apps = false
+
+[palettes.colors]
+# This section is unused unless you use the 'colors' template; we
+# use the built-in Material You scheme in the templates block.
+```
+
+```toml
+[[templates]]
+input_path  = "/dev/stdin"
+output_path = "~/.cache/matugen/colors.json"
+```
+
+```text
+{ "colors": { "{{colors.primary}}": "{{colors.primary}}", ... } }
+```
+
+In practice, matugen's stock output already produces a JSON file in
+`~/.cache/matugen/colors.json` containing a `colors` object with role names
+like `primary`, `on_primary`, `surface`, `on_surface`, `outline`, etc. — seekey
+reads this object directly.
+
+**Reload after wallpaper change:** changing your wallpaper and re-running
+`matugen` updates the JSON file, but seekey does not auto-watch it. Restart
+`seekey` (or run `pkill seekey && seekey &`) to apply the new palette.
+
+If the JSON cannot be loaded (file missing or malformed), seekey prints a
+single warning to stderr and uses whatever values are in `seekey.ini`
+verbatim. This makes the matugen integration fully optional.
+
+## TUI editor
+
+`./seekey --config-tui` opens a terminal UI to browse and edit every setting.
+The top bar shows the path to the active config file and an `[Unsaved]`
+indicator when there are uncommitted changes.
+
+### Key bindings
+
+| Key | Action |
+|---|---|
+| `Up`/`Down` or `k`/`j` | Select field |
+| `Left`/`Right` or `h`/`l` | Adjust numeric/choice/color/bool value |
+| `Enter` | Edit (numbers/strings/colors) or open picker (choice/theme/color) |
+| `s` | Save to current path |
+| `S` | Save as a new path |
+| `r` | Reset the current field to its default |
+| `R` | Reset ALL fields to defaults (confirms first) |
+| `L` | Reload from disk (discards pending changes, confirms first) |
+| `?` | Show full help |
+| `q` / `Esc` | Quit (asks to save if there are unsaved changes) |
+
+For `TUI_CHOICE` fields (e.g. `align`, `disappear`, `layer-shell`, `theme`),
+pressing `Enter` opens a list picker. You can no longer end up in a text
+input mode that requires you to type the option name from memory.
+
+For color fields, pressing `Enter` opens a 24-color palette. Press `c` to
+enter a custom `#rrggbb` value (input is validated; invalid hex is
+rejected with an error message, no silent loss of your value).
+
+## Input permissions
+
+If Seekey prints `No readable keyboard devices found`, your user cannot read
+input devices. On many distributions the practical setup is:
+
+```sh
+sudo usermod -aG input "$USER"
+```
+
+Then log out and log back in. Some systems do not use an `input` group by
+default; in that case configure a local udev rule for the keyboard devices.
+
+Running as root is useful for a quick test, but not recommended for daily use.
+
+## Autostart
+
+The install script does **not** install an autostart entry — different
+Wayland compositors have different startup mechanisms and the right choice
+depends on your workflow. Add seekey to the compositor of your choice:
+
+### GNOME / KDE Plasma / Cinnamon / XFCE (XDG autostart)
+Create `~/.config/autostart/seekey.desktop`:
+```ini
+[Desktop Entry]
+Type=Application
+Name=Seekey
+Comment=Keyboard visualizer overlay for Wayland
+Exec=seekey
+Terminal=false
+Categories=Utility;
+X-GNOME-Autostart-enabled=true
+```
+
+### Hyprland
+Add to `~/.config/hypr/hyprland.conf`:
+```ini
+exec-once = seekey
+```
+
+### Sway
+Add to `~/.config/sway/config`:
+```
+exec seekey
+```
+
+### niri
+Add to `~/.config/niri/config.kdl`:
+```kdl
+spawn-at-startup "seekey"
+```
+
+### river
+Add to `~/.config/river/init`:
+```sh
+riverctl spawn seekey
+```
+
+### systemd user service (compositor-agnostic)
+Create `~/.config/systemd/user/seekey.service`:
+```ini
+[Unit]
+Description=Seekey keyboard visualizer
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/seekey
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+Then enable it:
+```sh
+systemctl --user enable --now seekey.service
+```
+
+> Tip: `~/.local/bin` (the default `install.sh` prefix) is not on `$PATH`
+> in some login sessions. Use the absolute path (e.g. `ExecStart=%h/.local/bin/seekey`)
+> in the systemd unit, or add `~/.local/bin` to your shell rc.
+
 ## Build
 
 Install dependencies:
@@ -55,33 +290,16 @@ Then build:
 make
 ```
 
-Run:
+Other Make targets:
 
 ```sh
-./seekey
+make            # build seekey
+make check      # run unit tests (Unity)
+make install    # install to PREFIX (default /usr/local)
+make uninstall  # remove installed files
+make format     # clang-format sources if available
+make clean      # remove build artifacts
 ```
-
-Seekey reads configuration from `~/.config/seekey/config.ini` by default. A
-sample file is available at [examples/config.ini](examples/config.ini).
-You can also edit the configuration through the terminal UI:
-
-```sh
-./seekey --config-tui
-```
-
-## Input permissions
-
-If Seekey prints `No readable keyboard devices found`, your user cannot read
-input devices. On many distributions the practical setup is:
-
-```sh
-sudo usermod -aG input "$USER"
-```
-
-Then log out and log back in. Some systems do not use an `input` group by
-default; in that case configure a local udev rule for the keyboard devices.
-
-Running as root is useful for a quick test, but not recommended for daily use.
 
 ## Options
 
@@ -89,9 +307,10 @@ Running as root is useful for a quick test, but not recommended for daily use.
 Usage: seekey [OPTIONS]
 
 Options:
-  --config PATH          Config file path (default: ~/.config/seekey/config.ini)
+  --config PATH          Config file path (default: ./seekey.ini)
   --config-tui           Open terminal UI to edit and save configuration
   --init-config          Write the current default/config/CLI settings to config
+  --init-config --xdg    Write to ~/.config/seekey/config.ini instead
   --force                Allow --init-config to overwrite an existing config
   --print-config         Print the effective configuration and exit
   --validate-config      Validate configuration and exit
@@ -102,8 +321,8 @@ Options:
   --no-merge-repeats     Show each key press as a separate bubble
   --merge-modifiers      Update modifier bubble when combo extends (default on)
   --no-merge-modifiers   Keep each modifier press as a separate bubble
-  --show-mouse           Show mouse clicks (default on)
-  --no-mouse             Hide mouse clicks
+  --show-mouse           Show mouse clicks (default off)
+  --no-mouse             Hide mouse clicks (default)
   --duration MS          How long each key bubble remains visible (default: 1200)
   --typing-idle MS       Pause before typed text starts a new bubble (default: 650)
   --fade-ms MS           Fade duration when disappear=fade (default: 180)
@@ -117,9 +336,11 @@ Options:
   -h, --help             Show help
 ```
 
-## Configuration
+## Configuration reference
 
-Create `~/.config/seekey/config.ini`:
+The most common settings (the ones most users will touch) are at the top of
+each section. The advanced settings below are kept for fine-tuning the look
+and feel.
 
 ```ini
 [general]
@@ -129,19 +350,18 @@ fade-ms=180
 margin=96
 margin-horizontal=0
 max-items=5
-window-width=720
-window-height=160
 layer-shell=auto
 theme=default
-merge-repeats=yes
-merge-modifiers=yes
-show-mouse=yes
+merge-repeats=true
+merge-modifiers=true
+show-mouse=false
 
 [style]
 align=right
 disappear=fade
 spacing=7
 overlay-padding=12
+key-min-width=0
 key-padding-x=14
 key-padding-y=8
 key-radius=6
@@ -149,6 +369,8 @@ key-border-width=1
 key-font-px=20
 key-font-weight=700
 typing-max-width=480
+window-width=720
+window-height=160
 foreground=#f7f7f2
 background=alpha(#111318, 0.86)
 border-color=alpha(#ffffff, 0.18)
@@ -158,31 +380,24 @@ placeholder-foreground=alpha(#f7f7f2, 0.74)
 placeholder-background=alpha(#111318, 0.56)
 placeholder-border-color=alpha(#ffffff, 0.14)
 
-# Optional icon overrides (key names match bubble labels)
 [icons]
 Backspace="⌫"
 Enter="↵"
 Space="␣"
+Tab="↹"
+Esc="⎋"
+Delete="⌦"
+Up="↑"
+Down="↓"
+Left="←"
+Right="→"
 ```
 
 `align=right` is the default. With layer-shell, the window anchors to the
 bottom-right corner of the screen (bottom-left for `left`, full-width bottom
-for `center`). Older bubbles move away from the anchored edge. `disappear=instant`
-removes bubbles directly; `disappear=fade` uses `fade-ms` and the `.fading` CSS
-state.
-
-Inside `--config-tui`, use Up/Down to select a field, Left/Right to adjust
-numeric and choice values, Enter to type an exact value, `s` to save, and `q`
-to quit.
-
-Useful configuration commands:
-
-```sh
-./seekey --init-config
-./seekey --init-config --force
-./seekey --print-config
-./seekey --validate-config
-```
+for `center`). Older bubbles move away from the anchored edge.
+`disappear=instant` removes bubbles directly; `disappear=fade` uses
+`fade-ms` and the `.fading` CSS state.
 
 ## Current scope
 
@@ -195,11 +410,34 @@ Useful configuration commands:
 - consecutive identical shortcut bubbles merged as `Key xN` (toggleable)
 - typed-text aggregation for letters, digits, punctuation, and spaces
 - special-key icons (`⌫ ↵ ␣ ↹ ⎋ ⌦ ↑ ↓ ← →`), user-configurable
-- 6 built-in colour themes (`default`, `nord`, `dracula`, `catppuccin`, `monokai`, `light`)
-- TUI config editor with colour palette picker and theme selector
+- 6 built-in colour themes (`default`, `nord`, `dracula`, `catppuccin`,
+  `monokai`, `light`)
+- TUI config editor with colour palette picker, theme selector, choice
+  pickers, save/reset/reload actions, and a help overlay
 - fade-out animation or instant bubble removal
 - behaviour flags: `merge-repeats`, `merge-modifiers`, `show-mouse`
 - startup placeholder bubble for easier fallback-window placement
+- project-local configuration (`./seekey.ini`) for clean per-project setups
+- unit tests with Unity (`make check`)
 
 Future work should add per-monitor placement, compositor-specific install
 snippets, and packaging.
+
+## Project layout
+
+```
+src/
+  seekey.h     public types
+  main.c       GTK application, event loop, bubble logic
+  config.c/h   config load/save/parse/theme
+  tui.c/h      TUI editor
+  input.c      evdev key/mouse capture
+  keynames.c   key name + icon lookup
+  layer_shell.c gtk4-layer-shell integration
+tests/
+  test_config.c  config roundtrip, validation, theme
+  test_tui.c     TUI field/adjust/reset (pure logic)
+  test_keynames.c key/icon/modifier tests
+  vendor/unity/  vendored Unity test framework
+seekey.ini.example  sample configuration
+```

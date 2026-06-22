@@ -1,0 +1,47 @@
+#ifndef SEEKEY_TUI_H
+#define SEEKEY_TUI_H
+
+#include "seekey.h"
+#include <glib.h>
+
+typedef enum {
+    TUI_UINT,
+    TUI_STRING,
+    TUI_CHOICE,
+    TUI_BOOL,
+    TUI_COLOR,
+} TuiFieldType;
+
+typedef struct {
+    const char *label;
+    const char *help;
+    const char *input_hint;
+    TuiFieldType type;
+    guint *uint_target;
+    guint min, max, step;
+    guint default_uint;
+    char *string_target;
+    gsize string_size;
+    char default_string[128];
+    const char **choices;
+    guint choice_count;
+    gboolean *bool_target;
+    gboolean default_bool;
+} TuiField;
+
+/* Pure helpers (no ncurses); safe to call from tests. */
+guint tui_current_choice_index(const TuiField *field);
+void   tui_field_value(const TuiField *field, char *buffer, gsize size);
+void   tui_adjust_field(TuiField *field, int direction);
+int    tui_nearest_color_index(const char *hex);
+void   tui_reset_field(TuiField *field);
+void   tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config);
+
+/* Total number of fields built by tui_build_fields (for assertions). */
+#define TUI_FIELD_COUNT 33
+
+/* Open the interactive TUI editor. Returns TRUE if no error. On error
+ * sets `error` and TUI has been torn down. */
+gboolean seekey_tui_run(SeekeyConfig *config, GError **error);
+
+#endif

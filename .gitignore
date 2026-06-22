@@ -1,0 +1,13 @@
+# Build artifacts
+seekey
+src/*.o
+build/
+*.o
+*.a
+
+# Generated configs (only keep seekey.ini.example)
+seekey.ini
+config.ini
+
+# Unity build outputs
+test_runner

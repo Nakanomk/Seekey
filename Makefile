@@ -3,7 +3,7 @@ PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -O2 -g
 WARNINGS := -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
-PKGS := gtk4 libevdev gio-unix-2.0 ncursesw
+PKGS := gtk4 libevdev gio-unix-2.0 ncursesw json-glib-1.0
 LIBS := -ldl
 
 # gtk4-layer-shell must be linked before GTK4 (which pulls in
@@ -19,23 +19,59 @@ else
 LAYER_SHELL_LIBS :=
 endif
 
+PREFIX ?= /usr/local
+BINDIR := $(PREFIX)/bin
+DATADIR := $(PREFIX)/share/seekey
+
 TARGET := seekey
-SRC := src/main.c src/input.c src/keynames.c src/layer_shell.c
+SRC := src/main.c src/config.c src/tui.c src/input.c src/keynames.c src/layer_shell.c
 OBJ := $(SRC:.c=.o)
 
 CPPFLAGS += -D_GNU_SOURCE
 CFLAGS += $(WARNINGS) $(shell $(PKG_CONFIG) --cflags $(PKGS))
 LDLIBS += $(LAYER_SHELL_LIBS) $(shell $(PKG_CONFIG) --libs $(PKGS)) $(LIBS)
 
-.PHONY: all clean
+# Test target uses the same flags but defines SEEKEY_TEST so tui.c
+# skips its ncurses-using code, and links with glib + Unity only.
+TEST_BIN := build/test_runner
+TEST_DEFS := -DSEEKEY_TEST -DG_DISABLE_ASSERT
+TEST_CFLAGS := $(WARNINGS) -O2 -g -Isrc -Itests/vendor/unity $(TEST_DEFS) \
+                $(shell $(PKG_CONFIG) --cflags glib-2.0 gobject-2.0 gio-2.0 gtk4 json-glib-1.0)
+TEST_SRCS := tests/test_main.c tests/test_config.c tests/test_tui.c \
+             tests/test_keynames.c tests/test_helpers.c
+TEST_LDLIBS := $(shell $(PKG_CONFIG) --libs glib-2.0 gobject-2.0 gio-2.0 json-glib-1.0) -lm
+
+.PHONY: all clean install uninstall check format
 
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) -o $@ $(LDLIBS)
 
-%.o: %.c src/seekey.h
+%.o: %.c src/seekey.h src/config.h src/tui.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
+install: $(TARGET)
+	install -Dm755 $(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET)
+	install -Dm644 seekey.ini.example $(DESTDIR)$(DATADIR)/seekey.ini.example
+
+uninstall:
+	rm -f $(DESTDIR)$(BINDIR)/$(TARGET)
+	rm -f $(DESTDIR)$(DATADIR)/seekey.ini.example
+
+format:
+	@command -v clang-format >/dev/null 2>&1 && \
+	    clang-format -i src/*.c src/*.h tests/*.c tests/*.h || \
+	    echo "clang-format not installed, skipping"
+
+$(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/tui.c src/keynames.c
+	@mkdir -p build
+	$(CC) $(TEST_CFLAGS) $(TEST_SRCS) tests/vendor/unity/unity.c \
+	    src/config.c src/tui.c src/keynames.c \
+	    -o $@ $(TEST_LDLIBS)
+
+check: $(TEST_BIN)
+	./$(TEST_BIN)
+
 clean:
-	rm -f $(TARGET) $(OBJ)
+	rm -f $(TARGET) $(OBJ) $(TEST_BIN)
