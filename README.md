@@ -24,6 +24,19 @@ For the overlay window:
   windows may require a compositor/window-rule setting because standard Wayland
   intentionally limits client-side always-on-top control.
 
+  When running in fallback mode, Seekey prints a notice to stderr listing the
+  settings that have no effect (see [Window position](#window-position)).
+  The summary is:
+
+  > The following settings have NO EFFECT in fallback mode:
+  >   - `style.align` (left/center/right) — no edge anchoring
+  >   - `general.margin` / `margin-horizontal` — no edge anchoring
+  >   - saved window position — compositor controls placement
+
+  To enable the full feature set on these compositors, install
+  `gtk4-layer-shell` (if the compositor supports wlr-layer-shell) or switch
+  to a layer-shell compositor such as niri, Hyprland, Sway, or river.
+
 ## Quick start
 
 ```sh
@@ -177,6 +190,59 @@ input mode that requires you to type the option name from memory.
 For color fields, pressing `Enter` opens a 24-color palette. Press `c` to
 enter a custom `#rrggbb` value (input is validated; invalid hex is
 rejected with an error message, no silent loss of your value).
+
+## Window position
+
+On layer-shell compositors (niri, Hyprland, Sway, river, ...), the
+overlay's position is fully determined by the configuration:
+
+- `style.align` — `left` / `center` / `right` choose the horizontal edge
+- `general.margin` — bottom margin in pixels
+- `general.margin-horizontal` — left/right margin in pixels (ignored when `align=center`)
+
+These three keys give a fixed, reproducible position on a given monitor
+(anchor + offset is deterministic). On a single-monitor setup you
+already get a stable position out of the box.
+
+### Multi-monitor
+
+On a multi-monitor setup, Seekey remembers which monitor it was on the
+last time it ran and opens on that monitor next launch:
+
+- On shutdown, Seekey writes the current monitor's connector name (e.g.
+  `HDMI-A-1`, `DP-1`, `eDP-1`) to
+  `$XDG_STATE_HOME/seekey/window.ini` (fallback `~/.local/state/seekey/window.ini`).
+- On startup, Seekey reads that file and uses
+  [`gtk_layer_set_monitor`](https://github.com/wmww/gtk4-layer-shell)
+  to pin the overlay to the same monitor.
+- If the saved monitor is no longer connected (cable unplugged, dock
+  removed, etc.), Seekey silently falls back to the focused output and
+  the next shutdown updates the saved state.
+
+To forget the saved monitor, run `rm ~/.local/state/seekey/window.ini`
+or press `W` in the TUI.
+
+### Fallback mode (no layer-shell)
+
+If layer-shell is unavailable (GNOME, KDE, missing `gtk4-layer-shell`),
+Seekey prints a notice to stderr explaining which settings have no
+effect:
+
+```
+seekey: using fallback window: <reason>
+seekey: NOTE: you are not running under a wlr-layer-shell compositor.
+seekey:       The following settings have NO EFFECT in fallback mode:
+seekey:         - style.align / margin / margin-horizontal (no edge anchoring)
+seekey:         - saved window position (compositor controls placement)
+seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,
+seekey:       Sway, river) or install gtk4-layer-shell on a supported system.
+```
+
+On the X11 fallback path, `gtk_window_move` and the saved position
+would normally restore a window to its previous spot, but on pure
+Wayland the compositor decides placement by design. The state file is
+still written so an X session (if you ever log into one) restores the
+position correctly.
 
 ## Input permissions
 

@@ -73,7 +73,8 @@ key-radius=6
 key-border-width=1
 key-font-px=20
 key-font-weight=700
-typing-max-width=480
+typing-max-width=480    # ≈ characters; long text beyond this gets "…"
+                    # 0 = no max (label grows with text)
 
 # Fallback window size when layer-shell is unavailable.
 window-width=720

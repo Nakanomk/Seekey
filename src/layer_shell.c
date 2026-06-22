@@ -29,9 +29,11 @@ typedef void (*SetMarginFn)(GtkWindow *, GtkLayerShellEdgeCompat, int);
 typedef void (*SetKeyboardModeFn)(GtkWindow *, GtkLayerShellKeyboardModeCompat);
 typedef void (*SetNamespaceFn)(GtkWindow *, const char *);
 typedef void (*SetExclusiveZoneFn)(GtkWindow *, int);
+typedef void (*SetMonitorFn)(GtkWindow *, GdkMonitor *);
 
 gboolean seekey_layer_shell_try_init(GtkWindow *window,
                                      const SeekeyConfig *config,
+                                     GdkMonitor *monitor,
                                      GError **error)
 {
     if (config->no_layer_shell || g_strcmp0(config->layer_shell, "off") == 0) {
@@ -66,6 +68,8 @@ gboolean seekey_layer_shell_try_init(GtkWindow *window,
         (SetNamespaceFn)dlsym(handle, "gtk_layer_set_namespace");
     SetExclusiveZoneFn set_exclusive_zone =
         (SetExclusiveZoneFn)dlsym(handle, "gtk_layer_set_exclusive_zone");
+    SetMonitorFn set_monitor =
+        (SetMonitorFn)dlsym(handle, "gtk_layer_set_monitor");
 
     if (init_for_window == NULL || set_layer == NULL || set_anchor == NULL ||
         set_margin == NULL || set_keyboard_mode == NULL) {
@@ -81,6 +85,10 @@ gboolean seekey_layer_shell_try_init(GtkWindow *window,
         set_namespace(window, "seekey");
     }
     set_layer(window, GTK_LAYER_SHELL_LAYER_OVERLAY);
+
+    if (monitor != NULL && set_monitor != NULL) {
+        set_monitor(window, monitor);
+    }
 
     set_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
     set_margin(window, GTK_LAYER_SHELL_EDGE_BOTTOM, (int)config->margin_px);

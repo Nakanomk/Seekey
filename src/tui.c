@@ -1,6 +1,7 @@
 #include "seekey.h"
 #include "tui.h"
 #include "config.h"
+#include "window_state.h"
 
 #include <locale.h>
 #include <stdarg.h>
@@ -287,7 +288,7 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
                "integer 8..96", key_font_px, 8, 96, 1);
     UINT_FIELD("key-font-weight", "Bubble font weight.",
                "integer 100..1000", key_font_weight, 100, 1000, 100);
-    UINT_FIELD("typing-max-width", "Maximum width for grouped typing bubbles.",
+    UINT_FIELD("typing-max-width", "Max width for grouped typing bubbles (≈chars; triggers ellipsize).",
                "integer 80..2000", typing_max_width, 80, 2000, 20);
 
     COLOR_FIELD("foreground", "GTK CSS text color.",
@@ -699,9 +700,10 @@ static void tui_draw_help(void)
     mvprintw(11, 4, "r                   reset current field to default");
     mvprintw(12, 4, "R                   reset all fields to defaults");
     mvprintw(13, 4, "L                   reload from disk (discard changes)");
-    mvprintw(14, 4, "?                   this help");
-    mvprintw(15, 4, "q / Esc             quit (asks to save if dirty)");
-    mvprintw(17, 2, "Press any key to return");
+    mvprintw(14, 4, "W                   reset window state (forget saved monitor)");
+    mvprintw(15, 4, "?                   this help");
+    mvprintw(16, 4, "q / Esc             quit (asks to save if dirty)");
+    mvprintw(18, 2, "Press any key to return");
     refresh();
     getch();
 }
@@ -725,7 +727,7 @@ static void tui_redraw(TuiState *st)
     }
     mvprintw(3, 2, "Keys: \x18\x19 select  \x1b\x1a adjust  Enter edit/pick"
                    "  s save  S save as  r reset field  R reset all"
-                   "  L reload  ? help  q quit");
+                   "  L reload  W reset window state  ? help  q quit");
 
     int list_top = 5;
     int list_bottom = LINES - 10;
@@ -976,6 +978,10 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
             if (!st.dirty || tui_ask_yn("Discard current changes and reload?")) {
                 tui_reload(&st);
             }
+            break;
+        case 'W': case 'w':
+            seekey_window_state_clear();
+            tui_set_status(&st, "Window state cleared; next launch uses focused monitor");
             break;
         case 'S':
             if (!tui_save_as(&st, error)) goto done;

@@ -108,4 +108,5 @@ int seekey_modifier_order(guint code);
 
 gboolean seekey_layer_shell_try_init(GtkWindow *window,
                                      const SeekeyConfig *config,
+                                     GdkMonitor *monitor,
                                      GError **error);

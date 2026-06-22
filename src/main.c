@@ -1,6 +1,7 @@
 #include "seekey.h"
 #include "config.h"
 #include "tui.h"
+#include "window_state.h"
 
 #include <locale.h>
 #include <stdlib.h>
@@ -397,6 +398,17 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
             state->typing_text = g_string_new(NULL);
             gtk_label_set_single_line_mode(GTK_LABEL(state->typing_label), TRUE);
             gtk_label_set_ellipsize(GTK_LABEL(state->typing_label), PANGO_ELLIPSIZE_END);
+            /* typing-max-width is in CSS pixels; convert to chars using a
+             * rough heuristic (≈ pixel / 0.55 / font-size). For default
+             * 20px font this gives ≈ 1.4 chars per CSS px, so 480px ≈ 67 chars. */
+            if (state->config.typing_max_width > 0) {
+                guint chars = (state->config.typing_max_width * 10) /
+                              (state->config.key_font_px * 6);
+                if (chars > 0) {
+                    gtk_label_set_max_width_chars(GTK_LABEL(state->typing_label),
+                                                  (gint)chars);
+                }
+            }
             gtk_widget_add_css_class(state->typing_label, "key-bubble");
             gtk_widget_add_css_class(state->typing_label, "typing-bubble");
             gtk_box_append(GTK_BOX(state->box), state->typing_label);
@@ -448,9 +460,10 @@ static void install_css(const SeekeyConfig *config)
         "  opacity: 1;"
         "  transition: opacity %ums ease-out;"
         "}"
-        ".typing-bubble {"
-        "  max-width: %upx;"
-        "}"
+        /* Note: max-width is not a GTK CSS property. The typing bubble
+         * relies on the C-side `gtk_label_set_ellipsize(PANGO_ELLIPSIZE_END)`
+         * plus `gtk_label_set_max_width_chars()` for long-text truncation;
+         * style.typing-max-width controls the latter (in characters, not px). */
         ".placeholder-bubble {"
         "  color: %s;"
         "  background: %s;"
@@ -471,7 +484,6 @@ static void install_css(const SeekeyConfig *config)
         config->key_font_px,
         config->key_font_weight,
         config->fade_ms,
-        config->typing_max_width,
         config->placeholder_foreground,
         config->placeholder_background,
         config->placeholder_border_color);
@@ -513,8 +525,8 @@ static void detect_compositor(void)
 
     /* Compositor-specific hints (informational only for now). */
     struct { const char *id; const char *hint; } hints[] = {
-        {"niri", "  hint: niri treats layer-shell outputs as the full workspace column."
-                 "  Use a fallback window + niri window-rules for fixed positioning."},
+        {"niri", "  hint: layer-shell works; window is anchored to the chosen edge"
+                 " and follows the focused monitor (persisted across sessions)."},
         {"GNOME", "  hint: GNOME does not support wlr-layer-shell."
                   "  Use layer-shell=off and a GNOME extension for always-on-top."},
         {"sway",  "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."},
@@ -561,8 +573,23 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_add_css_class(state->placeholder, "placeholder-bubble");
     gtk_box_append(GTK_BOX(state->box), state->placeholder);
 
+    /* Resolve monitor from saved state (if any). NULL = let the
+     * compositor / layer-shell choose. */
+    SeekeyWindowState wstate;
+    seekey_window_state_load(&wstate, NULL);
+    GdkDisplay *display = gdk_display_get_default();
+    GdkMonitor *monitor = NULL;
+    if (wstate.monitor[0] != '\0') {
+        monitor = seekey_find_monitor_by_name(display, wstate.monitor);
+        if (monitor == NULL) {
+            g_printerr("seekey: saved monitor '%s' not found, using default\n",
+                       wstate.monitor);
+        }
+    }
+
     GError *layer_error = NULL;
-    if (!seekey_layer_shell_try_init(GTK_WINDOW(window), &state->config, &layer_error)) {
+    if (!seekey_layer_shell_try_init(GTK_WINDOW(window), &state->config,
+                                      monitor, &layer_error)) {
         if (g_strcmp0(state->config.layer_shell, "required") == 0) {
             g_printerr("seekey: layer-shell required but unavailable: %s\n",
                        layer_error->message);
@@ -571,8 +598,38 @@ static void activate(GtkApplication *app, gpointer user_data)
             exit(2);
         }
         g_printerr("seekey: using fallback window: %s\n", layer_error->message);
+        g_printerr("seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
+                   "seekey:       The following settings have NO EFFECT in fallback mode:\n"
+                   "seekey:         - style.align / margin / margin-horizontal (no edge anchoring)\n"
+                   "seekey:         - saved window position (compositor controls placement)\n"
+                   "seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
+                   "seekey:       Sway, river) or install gtk4-layer-shell on a supported system.\n"
+                   "seekey:       See README §Compatibility model for details.\n");
         g_clear_error(&layer_error);
     }
+
+    /* Persist the monitor we are now on, regardless of how we exit.
+     * layer-shell surfaces are anchored at startup and do not move at
+     * runtime, so recording the monitor here is sufficient — no need to
+     * wait for shutdown (which may not fire on SIGKILL / SIGHUP). */
+    {
+        GtkNative *native = gtk_widget_get_native(window);
+        GdkSurface *surface = native != NULL ? gtk_native_get_surface(native) : NULL;
+        if (surface != NULL) {
+            GdkDisplay *display = gdk_surface_get_display(surface);
+            GdkMonitor *m = gdk_display_get_monitor_at_surface(display, surface);
+            if (m != NULL) {
+                const char *connector = gdk_monitor_get_connector(m);
+                if (connector != NULL && connector[0] != '\0') {
+                    SeekeyWindowState s;
+                    memset(&s, 0, sizeof(s));
+                    g_strlcpy(s.monitor, connector, sizeof(s.monitor));
+                    seekey_window_state_save(&s, NULL);
+                }
+            }
+        }
+    }
+    g_clear_object(&monitor);
 
     GError *input_error = NULL;
     state->input = seekey_input_new(&state->config, on_key_event, state, &input_error);
@@ -590,6 +647,31 @@ static void activate(GtkApplication *app, gpointer user_data)
 static void shutdown_app(GApplication *app, gpointer user_data)
 {
     AppState *state = user_data;
+
+    /* Persist which monitor the window was on so the next launch can
+     * restore it. Failure is silent — the state file is best-effort.
+     * Note: we also save in activate() so even hard-killed processes
+     * leave a state file. */
+    if (state->window != NULL) {
+        GtkNative *native = gtk_widget_get_native(state->window);
+        GdkSurface *surface = native != NULL ? gtk_native_get_surface(native) : NULL;
+        if (surface != NULL) {
+            GdkDisplay *display = gdk_surface_get_display(surface);
+            GdkMonitor *monitor =
+                gdk_display_get_monitor_at_surface(display, surface);
+            if (monitor != NULL) {
+                const char *connector = gdk_monitor_get_connector(monitor);
+                if (connector != NULL && connector[0] != '\0') {
+                    SeekeyWindowState wstate;
+                    memset(&wstate, 0, sizeof(wstate));
+                    g_strlcpy(wstate.monitor, connector,
+                              sizeof(wstate.monitor));
+                    seekey_window_state_save(&wstate, NULL);
+                }
+            }
+        }
+    }
+
     cancel_active_typing_remove_timeout(state);
     cancel_active_typing_idle_timeout(state);
     clear_typing_group(state);
