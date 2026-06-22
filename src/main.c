@@ -3,6 +3,7 @@
 #include "tui.h"
 #include "window_state.h"
 
+#include <cairo.h>
 #include <locale.h>
 #include <stdlib.h>
 #include <string.h>
@@ -440,6 +441,25 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
     remember_last_bubble(state, label, event);
 }
 
+/* "map" signal callback: called once the window is realized and the
+ * underlying GdkSurface (and on Wayland, the wl_surface) exists. This is
+ * the only reliable time to set the input region — earlier calls are
+ * no-op'd by GDK on some compositors. */
+static void on_window_mapped(GtkWidget *widget, gpointer user_data)
+{
+    (void)user_data;
+    GtkNative *native = gtk_widget_get_native(widget);
+    GdkSurface *surface = native != NULL ? gtk_native_get_surface(native) : NULL;
+    if (surface == NULL) {
+        g_printerr("seekey: map fired but no GdkSurface available\n");
+        return;
+    }
+    cairo_region_t *empty = cairo_region_create();
+    gdk_surface_set_input_region(surface, empty);
+    cairo_region_destroy(empty);
+    g_print("seekey: input region set to empty (click-through enabled)\n");
+}
+
 static void install_css(const SeekeyConfig *config)
 {
     char *css = g_strdup_printf(
@@ -650,6 +670,18 @@ static void activate(GtkApplication *app, gpointer user_data)
         }
     }
     g_clear_object(&monitor);
+
+    /* Make the overlay click-through: seekey is purely visual, so the
+     * entire surface must NOT consume pointer events that should go to
+     * apps behind it (e.g. the dock at the bottom-right). An empty input
+     * region makes the surface input-transparent in both layer-shell and
+     * fallback paths. Keyboard focus is unaffected — seekey uses evdev
+     * directly and never claims keyboard focus.
+     *
+     * Set on the "map" signal so the underlying wl_surface is already
+     * realized; calling earlier (before present / map) is a silent
+     * no-op on some compositors. */
+    g_signal_connect(window, "map", G_CALLBACK(on_window_mapped), NULL);
 
     GError *input_error = NULL;
     state->input = seekey_input_new(&state->config, on_key_event, state, &input_error);

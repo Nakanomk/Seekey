@@ -17,7 +17,7 @@ static void test_set_defaults_all_fields(void)
     TEST_ASSERT_EQUAL_UINT(1200, c.duration_ms);
     TEST_ASSERT_EQUAL_UINT(650, c.typing_idle_ms);
     TEST_ASSERT_EQUAL_UINT(180, c.fade_ms);
-    TEST_ASSERT_EQUAL_UINT(96, c.margin_px);
+    TEST_ASSERT_EQUAL_UINT(0, c.margin_px);
     TEST_ASSERT_EQUAL_UINT(5, c.max_items);
     TEST_ASSERT_TRUE(c.merge_repeats);
     TEST_ASSERT_TRUE(c.merge_modifiers);

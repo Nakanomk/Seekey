@@ -223,6 +223,22 @@ These three keys give a fixed, reproducible position on a given monitor
 (anchor + offset is deterministic). On a single-monitor setup you
 already get a stable position out of the box.
 
+### Click-through
+
+seekey is purely a visual overlay — it shows what you typed, it does not
+consume any input. The window sets an **empty input region** on its
+GdkSurface, so all pointer events pass through to apps behind it. This
+means:
+
+- You can click the dock / taskbar / window controls that sit underneath
+  the bubbles without anything intercepting the click.
+- Mouse hover / focus / drag are unaffected.
+- Keyboard input is independent — seekey reads it via `libevdev` and
+  never claims keyboard focus (the layer-shell keyboard mode is
+  `KEYBOARD_MODE_NONE`).
+
+This works the same in layer-shell mode and in the X11 / fallback path.
+
 ### Multi-monitor
 
 On a multi-monitor setup, Seekey remembers which monitor it was on the
