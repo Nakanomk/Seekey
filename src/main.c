@@ -523,14 +523,30 @@ static void detect_compositor(void)
     const char *name = desktop ? desktop : "unknown";
     g_print("seekey: compositor %s\n", name);
 
-    /* Compositor-specific hints (informational only for now). */
+    /* Compositor-specific hints (informational only for now).
+     *
+     * Substring match on $XDG_CURRENT_DESKTOP, first match wins. Order
+     * matters: more specific IDs must come BEFORE the more general
+     * substrings they contain. E.g. "KWinFT" must precede "KDE" because
+     * the latter is a substring of the former. */
     struct { const char *id; const char *hint; } hints[] = {
+        /* Specific wlroots-based compositors first. */
+        {"KWinFT", "  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell;"
+                   " layer-shell=auto works well."},
+        {"Hyprland", "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."},
         {"niri", "  hint: layer-shell works; window is anchored to the chosen edge"
                  " and follows the focused monitor (persisted across sessions)."},
-        {"GNOME", "  hint: GNOME does not support wlr-layer-shell."
-                  "  Use layer-shell=off and a GNOME extension for always-on-top."},
         {"sway",  "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."},
-        {"Hyprland", "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."},
+        {"river", "  hint: river supports wlr-layer-shell; layer-shell=auto works well."},
+        {"wayfire", "  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well."},
+        {"labwc", "  hint: labwc supports wlr-layer-shell; layer-shell=auto works well."},
+        /* Fallback-only compositors after. */
+        {"KDE", "  hint: KWin (default KDE Plasma) does not support wlr-layer-shell."
+                "  seekey falls back to a normal window. See README §GNOME/KDE"
+                "  fallback for window rules to pin position and raise."},
+        {"GNOME", "  hint: GNOME does not support wlr-layer-shell."
+                  "  seekey falls back to a normal window. See README §GNOME/KDE"
+                  "  fallback for window rules to pin position and raise."},
     };
 
     for (gsize i = 0; i < G_N_ELEMENTS(hints); i++) {
@@ -553,6 +569,10 @@ static void activate(GtkApplication *app, gpointer user_data)
     GtkWidget *window = gtk_application_window_new(app);
     state->window = window;
     gtk_window_set_title(GTK_WINDOW(window), "Seekey");
+    /* The GApplication ID "dev.seekey" (set below) becomes the
+     * Wayland `app_id` and the X11 `WM_CLASS` (dots → underscores:
+     * `dev_seekey`). KWin / Hyprland window rules and GNOME extensions
+     * can target it directly. */
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
     gtk_window_set_default_size(GTK_WINDOW(window),
@@ -760,7 +780,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    GtkApplication *app = gtk_application_new("dev.seekey.Seekey",
+    GtkApplication *app = gtk_application_new("dev.seekey",
                                               G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), &state);
     g_signal_connect(app, "shutdown", G_CALLBACK(shutdown_app), &state);

@@ -37,6 +37,25 @@ For the overlay window:
   `gtk4-layer-shell` (if the compositor supports wlr-layer-shell) or switch
   to a layer-shell compositor such as niri, Hyprland, Sway, or river.
 
+### Tested compositors
+
+| Compositor | layer-shell | Fallback | Notes |
+|---|---|---|---|
+| niri | ✓ | — | Default test target. Works out of the box. |
+| Hyprland | ✓ | — | Full feature set. |
+| Sway | ✓ | — | Full feature set. |
+| river | ✓ | — | Full feature set. |
+| Wayfire | ✓ | — | Full feature set. |
+| labwc | ✓ | — | Full feature set. |
+| KWinFT (KDE wlroots fork) | ✓ | — | Full feature set. |
+| GNOME (mutter) | — | ✓ | Use "Auto Move Windows" extension or `dconf` — see below. |
+| KDE Plasma (KWin) | — | ✓ | Configure `~/.config/kwinrulesrc` — see below. |
+| X11 session | — | — | Not supported (this is a Wayland tool). |
+| macOS, Windows, BSD | — | — | `libevdev` is Linux-only. |
+
+The fallback-mode window rules for GNOME and KDE are documented in
+[Pinning the window on GNOME / KDE](#pinning-the-window-on-gnome--kde-fallback).
+
 ## Quick start
 
 ```sh
@@ -243,6 +262,71 @@ would normally restore a window to its previous spot, but on pure
 Wayland the compositor decides placement by design. The state file is
 still written so an X session (if you ever log into one) restores the
 position correctly.
+
+### Pinning the window on GNOME / KDE (fallback mode)
+
+seekey sets a stable app id (`dev.seekey`) so window rules can target it by
+name. Below are minimal examples for the two major fallback compositors.
+
+#### KDE Plasma (KWin)
+
+Create `~/.config/kwinrulesrc`:
+
+```ini
+[General]
+count=1
+rules=1
+
+[1]
+Description=seekey
+above=true
+position=1920,1040
+positionrule=Force
+wmclass=dev_seekey dev_seekey
+wmclasscomplete=true
+```
+
+Reload KWin's rules: `qdbus org.kde.KWin /KWin reconfigure` (or log out / in).
+
+To find your target monitor's resolution, run `kscreen-doctor -o` and
+use one of the `Geometry: WxH+X+Y` lines (the `+X+Y` part is your window's
+top-left in screen pixels).
+
+#### GNOME (Mutter)
+
+GNOME does not have a first-class per-app window rule editor in the
+shell UI. The two practical paths are:
+
+1. **Extension — "Auto Move Windows"** (recommended):
+   - Install from <https://extensions.gnome.org>.
+   - Add a rule: app id = `dev.seekey`, position = your preferred corner,
+     monitor = your preferred output.
+   - Extension auto-applies the rule every time the window is mapped.
+
+2. **`dconf` direct edit** (advanced, persists):
+   ```sh
+   dconf write /org/gnome/mutter/wayland/x-window-rules \
+     "['seekey:app-id:dev.seekey']"
+   # GNOME's mutter schema only honours a small set of properties here
+   # (see `man mutter-schema`); Auto Move Windows is more flexible.
+   ```
+
+#### Sway / Hyprland (still works in fallback mode)
+
+If you ever run seekey with `layer-shell=off` on a layer-shell
+compositor (e.g. to debug), the app id still works for window rules:
+
+```ini
+# sway config
+for_window [app_id="dev.seekey"] floating enable
+for_window [app_id="dev.seekey"] sticky enable
+```
+
+```ini
+# hyprland.conf
+windowrulev2 = float, class:^(dev\.seekey)$
+windowrulev2 = keep-floating, class:^(dev\.seekey)$
+```
 
 ## Input permissions
 
