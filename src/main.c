@@ -451,13 +451,13 @@ static void on_window_mapped(GtkWidget *widget, gpointer user_data)
     GtkNative *native = gtk_widget_get_native(widget);
     GdkSurface *surface = native != NULL ? gtk_native_get_surface(native) : NULL;
     if (surface == NULL) {
-        g_printerr("seekey: map fired but no GdkSurface available\n");
+        g_printerr(_("seekey: map fired but no GdkSurface available\n"));
         return;
     }
     cairo_region_t *empty = cairo_region_create();
     gdk_surface_set_input_region(surface, empty);
     cairo_region_destroy(empty);
-    g_print("seekey: input region set to empty (click-through enabled)\n");
+    g_print(_("seekey: input region set to empty (click-through enabled)\n"));
 }
 
 static void install_css(const SeekeyConfig *config)
@@ -536,12 +536,12 @@ static void detect_compositor(void)
     const char *wayland = g_getenv("WAYLAND_DISPLAY");
 
     if (wayland == NULL) {
-        g_print("seekey: compositor unknown (no WAYLAND_DISPLAY)\n");
+        g_print(_("seekey: compositor unknown (no WAYLAND_DISPLAY)\n"));
         return;
     }
 
     const char *name = desktop ? desktop : "unknown";
-    g_print("seekey: compositor %s\n", name);
+    g_print(_("seekey: compositor %s\n"), name);
 
     /* Compositor-specific hints (informational only for now).
      *
@@ -551,27 +551,27 @@ static void detect_compositor(void)
      * the latter is a substring of the former. */
     struct { const char *id; const char *hint; } hints[] = {
         /* Specific wlroots-based compositors first. */
-        {"KWinFT", "  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell;"
-                   " layer-shell=auto works well."},
-        {"Hyprland", "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."},
-        {"niri", "  hint: layer-shell works; window is anchored to the chosen edge"
-                 " and follows the focused monitor (persisted across sessions)."},
-        {"sway",  "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."},
-        {"river", "  hint: river supports wlr-layer-shell; layer-shell=auto works well."},
-        {"wayfire", "  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well."},
-        {"labwc", "  hint: labwc supports wlr-layer-shell; layer-shell=auto works well."},
+        {"KWinFT", N_("  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell;"
+                    " layer-shell=auto works well.")},
+        {"Hyprland", N_("  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well.")},
+        {"niri", N_("  hint: layer-shell works; window is anchored to the chosen edge"
+                 " and follows the focused monitor (persisted across sessions).")},
+        {"sway",  N_("  hint: Sway supports wlr-layer-shell; layer-shell=auto works well.")},
+        {"river", N_("  hint: river supports wlr-layer-shell; layer-shell=auto works well.")},
+        {"wayfire", N_("  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well.")},
+        {"labwc", N_("  hint: labwc supports wlr-layer-shell; layer-shell=auto works well.")},
         /* Fallback-only compositors after. */
-        {"KDE", "  hint: KWin (default KDE Plasma) does not support wlr-layer-shell."
+        {"KDE", N_("  hint: KWin (default KDE Plasma) does not support wlr-layer-shell."
                 "  seekey falls back to a normal window. See README §GNOME/KDE"
-                "  fallback for window rules to pin position and raise."},
-        {"GNOME", "  hint: GNOME does not support wlr-layer-shell."
+                "  fallback for window rules to pin position and raise.")},
+        {"GNOME", N_("  hint: GNOME does not support wlr-layer-shell."
                   "  seekey falls back to a normal window. See README §GNOME/KDE"
-                  "  fallback for window rules to pin position and raise."},
+                  "  fallback for window rules to pin position and raise.")},
     };
 
     for (gsize i = 0; i < G_N_ELEMENTS(hints); i++) {
         if (g_strstr_len(desktop, -1, hints[i].id) != NULL) {
-            g_print("%s\n", hints[i].hint);
+            g_print("%s\n", _(hints[i].hint));
             break;
         }
     }
@@ -622,7 +622,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     if (wstate.monitor[0] != '\0') {
         monitor = seekey_find_monitor_by_name(display, wstate.monitor);
         if (monitor == NULL) {
-            g_printerr("seekey: saved monitor '%s' not found, using default\n",
+            g_printerr(_("seekey: saved monitor '%s' not found, using default\n"),
                        wstate.monitor);
         }
     }
@@ -631,20 +631,20 @@ static void activate(GtkApplication *app, gpointer user_data)
     if (!seekey_layer_shell_try_init(GTK_WINDOW(window), &state->config,
                                       monitor, &layer_error)) {
         if (g_strcmp0(state->config.layer_shell, "required") == 0) {
-            g_printerr("seekey: layer-shell required but unavailable: %s\n",
+            g_printerr(_("seekey: layer-shell required but unavailable: %s\n"),
                        layer_error->message);
-            g_printerr("seekey: install gtk4-layer-shell and use a compositor that supports wlr-layer-shell.\n");
+            g_printerr(_("seekey: install gtk4-layer-shell and use a compositor that supports wlr-layer-shell.\n"));
             g_clear_error(&layer_error);
             exit(2);
         }
-        g_printerr("seekey: using fallback window: %s\n", layer_error->message);
-        g_printerr("seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
-                   "seekey:       The following settings have NO EFFECT in fallback mode:\n"
-                   "seekey:         - style.align / margin / margin-horizontal (no edge anchoring)\n"
-                   "seekey:         - saved window position (compositor controls placement)\n"
-                   "seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
-                   "seekey:       Sway, river) or install gtk4-layer-shell on a supported system.\n"
-                   "seekey:       See README §Compatibility model for details.\n");
+        g_printerr(_("seekey: using fallback window: %s\n"), layer_error->message);
+        g_printerr(_("seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
+                     "seekey:       The following settings have NO EFFECT in fallback mode:\n"
+                     "seekey:         - style.align / margin / margin-horizontal (no edge anchoring)\n"
+                     "seekey:         - saved window position (compositor controls placement)\n"
+                     "seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
+                     "seekey:       Sway, river) or install gtk4-layer-shell on a supported system.\n"
+                     "seekey:       See README §Compatibility model for details.\n"));
         g_clear_error(&layer_error);
     }
 
@@ -686,8 +686,8 @@ static void activate(GtkApplication *app, gpointer user_data)
     GError *input_error = NULL;
     state->input = seekey_input_new(&state->config, on_key_event, state, &input_error);
     if (state->input == NULL) {
-        g_printerr("seekey: %s\n", input_error->message);
-        g_printerr("seekey: grant read access to /dev/input/event* or run a quick test as root.\n");
+        g_printerr(_("seekey: %s\n"), input_error->message);
+        g_printerr(_("seekey: grant read access to /dev/input/event* or run a quick test as root.\n"));
         g_clear_error(&input_error);
     } else {
         seekey_input_start(state->input);
@@ -735,6 +735,12 @@ int main(int argc, char **argv)
 {
     setlocale(LC_ALL, "");
 
+    /* Bind gettext domain. Falls back to source strings if no .mo is
+     * installed (or if the user's locale has no translation). */
+    bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
+    bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
+    textdomain(GETTEXT_PACKAGE);
+
     AppState state = {0};
     seekey_config_set_defaults(&state.config);
 
@@ -776,11 +782,11 @@ int main(int argc, char **argv)
 
     if (state.config.init_config) {
         if (!seekey_config_init(&state.config, state.config.force, &error)) {
-            g_printerr("seekey: %s\n", error->message);
+            g_printerr(_("seekey: %s\n"), error->message);
             g_clear_error(&error);
             return 2;
         }
-        g_print("Wrote config to %s\n", state.config.config_path);
+        g_print(_("Wrote config to %s\n"), state.config.config_path);
         return 0;
     }
 
@@ -795,17 +801,17 @@ int main(int argc, char **argv)
 
     if (state.config.validate_config) {
         if (!seekey_config_validate(&state.config, &error)) {
-            g_printerr("seekey: %s\n", error->message);
+            g_printerr(_("seekey: %s\n"), error->message);
             g_clear_error(&error);
             return 2;
         }
-        g_print("Config OK: %s\n", state.config.config_path);
+        g_print(_("Config OK: %s\n"), state.config.config_path);
         return 0;
     }
 
     if (state.config.config_tui) {
         if (!seekey_tui_run(&state.config, &error)) {
-            g_printerr("seekey: %s\n", error->message);
+            g_printerr(_("seekey: %s\n"), error->message);
             g_clear_error(&error);
             return 2;
         }

@@ -1,0 +1,153 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Seekey contributors
+# This file is distributed under the same license as the seekey package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: seekey 0.2.0\n"
+"Report-Msgid-Bugs-To: https://github.com/anomalyco/seekey/issues\n"
+"POT-Creation-Date: 2026-06-23 03:10+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/main.c:454
+msgid "seekey: map fired but no GdkSurface available\n"
+msgstr ""
+
+#: src/main.c:460
+msgid "seekey: input region set to empty (click-through enabled)\n"
+msgstr ""
+
+#: src/main.c:539
+msgid "seekey: compositor unknown (no WAYLAND_DISPLAY)\n"
+msgstr ""
+
+#: src/main.c:544
+#, c-format
+msgid "seekey: compositor %s\n"
+msgstr ""
+
+#: src/main.c:554
+msgid ""
+"  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell; layer-shell=auto "
+"works well."
+msgstr ""
+
+#: src/main.c:556
+msgid "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."
+msgstr ""
+
+#: src/main.c:557
+msgid ""
+"  hint: layer-shell works; window is anchored to the chosen edge and follows "
+"the focused monitor (persisted across sessions)."
+msgstr ""
+
+#: src/main.c:559
+msgid "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."
+msgstr ""
+
+#: src/main.c:560
+msgid "  hint: river supports wlr-layer-shell; layer-shell=auto works well."
+msgstr ""
+
+#: src/main.c:561
+msgid "  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well."
+msgstr ""
+
+#: src/main.c:562
+msgid "  hint: labwc supports wlr-layer-shell; layer-shell=auto works well."
+msgstr ""
+
+#: src/main.c:564
+msgid ""
+"  hint: KWin (default KDE Plasma) does not support wlr-layer-shell.  seekey "
+"falls back to a normal window. See README §GNOME/KDE  fallback for window "
+"rules to pin position and raise."
+msgstr ""
+
+#: src/main.c:567
+msgid ""
+"  hint: GNOME does not support wlr-layer-shell.  seekey falls back to a "
+"normal window. See README §GNOME/KDE  fallback for window rules to pin "
+"position and raise."
+msgstr ""
+
+#: src/main.c:625
+#, c-format
+msgid "seekey: saved monitor '%s' not found, using default\n"
+msgstr ""
+
+#: src/main.c:634
+#, c-format
+msgid "seekey: layer-shell required but unavailable: %s\n"
+msgstr ""
+
+#: src/main.c:636
+msgid ""
+"seekey: install gtk4-layer-shell and use a compositor that supports wlr-"
+"layer-shell.\n"
+msgstr ""
+
+#: src/main.c:640
+#, c-format
+msgid "seekey: using fallback window: %s\n"
+msgstr ""
+
+#: src/main.c:641
+msgid ""
+"seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
+"seekey:       The following settings have NO EFFECT in fallback mode:\n"
+"seekey:         - style.align / margin / margin-horizontal (no edge "
+"anchoring)\n"
+"seekey:         - saved window position (compositor controls placement)\n"
+"seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
+"seekey:       Sway, river) or install gtk4-layer-shell on a supported "
+"system.\n"
+"seekey:       See README §Compatibility model for details.\n"
+msgstr ""
+
+#: src/main.c:689 src/main.c:785 src/main.c:804 src/main.c:814
+#, c-format
+msgid "seekey: %s\n"
+msgstr ""
+
+#: src/main.c:690
+msgid ""
+"seekey: grant read access to /dev/input/event* or run a quick test as root.\n"
+msgstr ""
+
+#: src/main.c:789
+#, c-format
+msgid "Wrote config to %s\n"
+msgstr ""
+
+#: src/main.c:808
+#, c-format
+msgid "Config OK: %s\n"
+msgstr ""
+
+#: src/layer_shell.c:118
+#, c-format
+msgid ""
+"seekey: layer-shell active (anchor bottom-left, margin bottom=%u "
+"horizontal=%u)\n"
+msgstr ""
+
+#: src/layer_shell.c:121
+#, c-format
+msgid ""
+"seekey: layer-shell active (anchor bottom-right, margin bottom=%u "
+"horizontal=%u)\n"
+msgstr ""
+
+#: src/layer_shell.c:124
+msgid "seekey: layer-shell active (anchor bottom full-width center)\n"
+msgstr ""

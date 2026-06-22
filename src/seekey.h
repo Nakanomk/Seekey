@@ -2,7 +2,16 @@
 
 #define SEEKEY_VERSION "0.2.0"
 
+/* gettext package name and locale dir (overridable at build time) */
+#ifndef GETTEXT_PACKAGE
+#define GETTEXT_PACKAGE "seekey"
+#endif
+#ifndef LOCALEDIR
+#define LOCALEDIR "/usr/local/share/locale"
+#endif
+
 #include <glib.h>
+#include <glib/gi18n.h>
 #include <gtk/gtk.h>
 
 /* Bitmask flags for active modifiers, used to compare modifier sets. */

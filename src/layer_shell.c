@@ -115,13 +115,13 @@ gboolean seekey_layer_shell_try_init(GtkWindow *window,
     set_keyboard_mode(window, GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
 
     if (g_strcmp0(config->align, "left") == 0) {
-        g_print("seekey: layer-shell active (anchor bottom-left, margin bottom=%u horizontal=%u)\n",
+        g_print(_("seekey: layer-shell active (anchor bottom-left, margin bottom=%u horizontal=%u)\n"),
                 config->margin_px, config->margin_horizontal_px);
     } else if (g_strcmp0(config->align, "right") == 0) {
-        g_print("seekey: layer-shell active (anchor bottom-right, margin bottom=%u horizontal=%u)\n",
+        g_print(_("seekey: layer-shell active (anchor bottom-right, margin bottom=%u horizontal=%u)\n"),
                 config->margin_px, config->margin_horizontal_px);
     } else {
-        g_print("seekey: layer-shell active (anchor bottom full-width center)\n");
+        g_print(_("seekey: layer-shell active (anchor bottom full-width center)\n"));
     }
 
     return TRUE;

@@ -1,0 +1,167 @@
+# Chinese (Simplified) translations for seekey.
+# Copyright (C) 2024-2026 Seekey contributors
+# This file is distributed under the same license as the seekey package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: seekey 0.2.0\n"
+"Report-Msgid-Bugs-To: https://github.com/anomalyco/seekey/issues\n"
+"POT-Creation-Date: 2026-06-23 03:10+0800\n"
+"PO-Revision-Date: 2026-06-23 03:11+0800\n"
+"Last-Translator: Seekey contributors\n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/main.c:454
+msgid "seekey: map fired but no GdkSurface available\n"
+msgstr "seekey：map 事件触发但没有可用的 GdkSurface\n"
+
+#: src/main.c:460
+msgid "seekey: input region set to empty (click-through enabled)\n"
+msgstr "seekey：input region 已设为空（点击穿透已开启）\n"
+
+#: src/main.c:539
+msgid "seekey: compositor unknown (no WAYLAND_DISPLAY)\n"
+msgstr "seekey：未检测到合成器（没有 WAYLAND_DISPLAY）\n"
+
+#: src/main.c:544
+#, c-format
+msgid "seekey: compositor %s\n"
+msgstr "seekey：合成器 %s\n"
+
+#: src/main.c:554
+msgid ""
+"  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell; layer-shell=auto "
+"works well."
+msgstr ""
+"  提示：KWinFT（KDE 的 wlroots 分支）支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
+
+#: src/main.c:556
+msgid "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."
+msgstr "  提示：Hyprland 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
+
+#: src/main.c:557
+msgid ""
+"  hint: layer-shell works; window is anchored to the chosen edge and follows "
+"the focused monitor (persisted across sessions)."
+msgstr ""
+"  提示：layer-shell 正常工作，窗口锚定到所选边缘，跟随聚焦的显示器（跨会话记忆）。"
+
+#: src/main.c:559
+msgid "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."
+msgstr "  提示：Sway 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
+
+#: src/main.c:560
+msgid "  hint: river supports wlr-layer-shell; layer-shell=auto works well."
+msgstr "  提示：river 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
+
+#: src/main.c:561
+msgid "  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well."
+msgstr "  提示：Wayfire 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
+
+#: src/main.c:562
+msgid "  hint: labwc supports wlr-layer-shell; layer-shell=auto works well."
+msgstr "  提示：labwc 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
+
+#: src/main.c:564
+msgid ""
+"  hint: KWin (default KDE Plasma) does not support wlr-layer-shell.  seekey "
+"falls back to a normal window. See README §GNOME/KDE  fallback for window "
+"rules to pin position and raise."
+msgstr ""
+"  提示：KWin（默认的 KDE Plasma）不支持 wlr-layer-shell，seekey 退回到普通窗口模式。固定位置 / 置顶方法见 README §GNOME/KDE fallback。"
+
+#: src/main.c:567
+msgid ""
+"  hint: GNOME does not support wlr-layer-shell.  seekey falls back to a "
+"normal window. See README §GNOME/KDE  fallback for window rules to pin "
+"position and raise."
+msgstr ""
+"  提示：GNOME 不支持 wlr-layer-shell，seekey 退回到普通窗口模式。固定位置 / 置顶方法见 README §GNOME/KDE fallback。"
+
+#: src/main.c:625
+#, c-format
+msgid "seekey: saved monitor '%s' not found, using default\n"
+msgstr "seekey：未找到保存的显示器 '%s'，使用默认\n"
+
+#: src/main.c:634
+#, c-format
+msgid "seekey: layer-shell required but unavailable: %s\n"
+msgstr "seekey：需要 layer-shell 但不可用：%s\n"
+
+#: src/main.c:636
+msgid ""
+"seekey: install gtk4-layer-shell and use a compositor that supports wlr-"
+"layer-shell.\n"
+msgstr ""
+"seekey：请安装 gtk4-layer-shell，并使用支持 wlr-layer-shell 的合成器。\n"
+
+#: src/main.c:640
+#, c-format
+msgid "seekey: using fallback window: %s\n"
+msgstr "seekey：使用 fallback 窗口：%s\n"
+
+#: src/main.c:641
+msgid ""
+"seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
+"seekey:       The following settings have NO EFFECT in fallback mode:\n"
+"seekey:         - style.align / margin / margin-horizontal (no edge "
+"anchoring)\n"
+"seekey:         - saved window position (compositor controls placement)\n"
+"seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
+"seekey:       Sway, river) or install gtk4-layer-shell on a supported "
+"system.\n"
+"seekey:       See README §Compatibility model for details.\n"
+msgstr ""
+"seekey：注意：你当前不在 wlr-layer-shell 合成器下。\n"
+"seekey：       以下设置在 fallback 模式下不生效：\n"
+"seekey：         - style.align / margin / margin-horizontal（无法锚定边缘）\n"
+"seekey：         - 保存的窗口位置（由合成器决定）\n"
+"seekey：       想启用这些，请改用 layer-shell 合成器（niri、Hyprland、\n"
+"seekey：       Sway、river），或在支持的系统上安装 gtk4-layer-shell。\n"
+"seekey：       详见 README §Compatibility model。\n"
+
+#: src/main.c:689 src/main.c:785 src/main.c:804 src/main.c:814
+#, c-format
+msgid "seekey: %s\n"
+msgstr "seekey：%s\n"
+
+#: src/main.c:690
+msgid ""
+"seekey: grant read access to /dev/input/event* or run a quick test as root.\n"
+msgstr ""
+"seekey：给 /dev/input/event* 加上读权限，或者用 root 跑一次试试。\n"
+
+#: src/main.c:789
+#, c-format
+msgid "Wrote config to %s\n"
+msgstr "配置已写入 %s\n"
+
+#: src/main.c:808
+#, c-format
+msgid "Config OK: %s\n"
+msgstr "配置正确：%s\n"
+
+#: src/layer_shell.c:118
+#, c-format
+msgid ""
+"seekey: layer-shell active (anchor bottom-left, margin bottom=%u "
+"horizontal=%u)\n"
+msgstr ""
+"seekey：layer-shell 已激活（锚定左下，底边距 %u，水平边距 %u）\n"
+
+#: src/layer_shell.c:121
+#, c-format
+msgid ""
+"seekey: layer-shell active (anchor bottom-right, margin bottom=%u "
+"horizontal=%u)\n"
+msgstr ""
+"seekey：layer-shell 已激活（锚定右下，底边距 %u，水平边距 %u）\n"
+
+#: src/layer_shell.c:124
+msgid "seekey: layer-shell active (anchor bottom full-width center)\n"
+msgstr "seekey：layer-shell 已激活（锚定底边全宽居中）\n"

@@ -28,6 +28,13 @@ endif
 PREFIX ?= /usr/local
 BINDIR := $(PREFIX)/bin
 DATADIR := $(PREFIX)/share/seekey
+LOCALEDIR := $(PREFIX)/share/locale
+
+# gettext package metadata. The preprocessor defaults in src/seekey.h
+# can be overridden at compile time via -DGETTEXT_PACKAGE / -DLOCALEDIR.
+GETTEXT_PACKAGE := seekey
+DOMAIN := $(GETTEXT_PACKAGE)
+CPPFLAGS += -DGETTEXT_PACKAGE=\"$(GETTEXT_PACKAGE)\" -DLOCALEDIR=\"$(LOCALEDIR)\"
 
 TARGET := seekey
 SRC := src/main.c src/config.c src/tui.c src/window_state.c \
@@ -37,6 +44,12 @@ OBJ := $(SRC:.c=.o)
 CPPFLAGS += -D_GNU_SOURCE
 CFLAGS += $(WARNINGS) $(shell $(PKG_CONFIG) --cflags $(PKGS))
 LDLIBS += $(LAYER_SHELL_LIBS) $(shell $(PKG_CONFIG) --libs $(PKGS)) $(LIBS)
+
+# Translations
+LINGUAS_FILE := po/LINGUAS
+POTFILE := po/$(DOMAIN).pot
+MO_FILES := $(patsubst %,locale/%/LC_MESSAGES/$(DOMAIN).mo,\
+             $(shell cat $(LINGUAS_FILE) 2>/dev/null))
 
 # Test target uses the same flags but defines SEEKEY_TEST so tui.c
 # skips its ncurses-using code, and links with glib + Unity only.
@@ -49,9 +62,9 @@ TEST_SRCS := tests/test_main.c tests/test_config.c tests/test_tui.c \
              tests/test_helpers.c
 TEST_LDLIBS := $(shell $(PKG_CONFIG) --libs glib-2.0 gobject-2.0 gio-2.0 json-glib-1.0 gtk4) -lm
 
-.PHONY: all clean install uninstall check format
+.PHONY: all clean install uninstall check format pot mo
 
-all: $(TARGET)
+all: $(TARGET) $(MO_FILES)
 
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) -o $@ $(LDLIBS)
@@ -59,13 +72,44 @@ $(TARGET): $(OBJ)
 %.o: %.c src/seekey.h src/config.h src/tui.h src/window_state.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-install: $(TARGET)
+# Translation rules
+$(POTFILE): $(SRC)
+	@command -v xgettext >/dev/null 2>&1 || { echo "xgettext not installed"; exit 0; }
+	xgettext --language=C --from-code=UTF-8 \
+	  --package-name=$(GETTEXT_PACKAGE) --package-version=0.2.0 \
+	  --copyright-holder="Seekey contributors" \
+	  --msgid-bugs-address="https://github.com/anomalyco/seekey/issues" \
+	  --keyword=_ --keyword=N_ \
+	  --add-comments=TRANSLATORS: \
+	  --default-domain=$(DOMAIN) \
+	  -o $@ $(SRC)
+
+po/%.po: $(POTFILE)
+	@command -v msgmerge >/dev/null 2>&1 || { echo "msgmerge not installed"; exit 0; }
+	msgmerge --update --backup=none --previous $@ $<
+
+locale/%/LC_MESSAGES/$(DOMAIN).mo: po/%.po
+	@mkdir -p $(@D)
+	msgfmt -o $@ $<
+
+pot: $(POTFILE)
+
+mo: $(MO_FILES)
+
+install: all
 	install -Dm755 $(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET)
 	install -Dm644 seekey.ini.example $(DESTDIR)$(DATADIR)/seekey.ini.example
+	@for mo in $(MO_FILES); do \
+	    lang=$$(echo $$mo | sed 's|^locale/\([^/]*\)/.*|\1|'); \
+	    install -Dm644 $$mo $(DESTDIR)$(LOCALEDIR)/$$lang/LC_MESSAGES/$(DOMAIN).mo; \
+	done
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/$(TARGET)
 	rm -f $(DESTDIR)$(DATADIR)/seekey.ini.example
+	@for lang in $(shell cat $(LINGUAS_FILE) 2>/dev/null); do \
+	    rm -f $(DESTDIR)$(LOCALEDIR)/$$lang/LC_MESSAGES/$(DOMAIN).mo; \
+	done
 
 format:
 	@command -v clang-format >/dev/null 2>&1 && \
@@ -83,3 +127,4 @@ check: $(TEST_BIN)
 
 clean:
 	rm -f $(TARGET) $(OBJ) $(TEST_BIN)
+	rm -rf locale
