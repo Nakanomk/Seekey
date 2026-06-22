@@ -127,6 +127,87 @@ const char *seekey_key_text(guint code, gboolean shifted)
     }
 }
 
+/* Default key → icon table.  Config overrides checked first. */
+typedef struct {
+    guint code;
+    const char *icon;
+} IconEntry;
+
+static const IconEntry DEFAULT_ICONS[] = {
+    {KEY_BACKSPACE,   "⌫"},   /* U+232B */
+    {KEY_ENTER,       "↵"},
+    {KEY_SPACE,       "␣"},
+    {KEY_TAB,         "↹"},
+    {KEY_ESC,         "⎋"},
+    {KEY_DELETE,      "⌦"},
+    {KEY_UP,          "↑"},
+    {KEY_DOWN,        "↓"},
+    {KEY_LEFT,        "←"},
+    {KEY_RIGHT,       "→"},
+    {KEY_PAGEUP,      "⇞"},
+    {KEY_PAGEDOWN,    "⇟"},
+    {KEY_HOME,        "⇱"},
+    {KEY_END,         "⇲"},
+    {KEY_KPENTER,     "⌤"},
+    {BTN_LEFT,        "⬤"},   /* filled circle */
+    {BTN_RIGHT,       "◉"},   /* bullseye */
+    {BTN_MIDDLE,      "◎"},   /* double circle */
+};
+
+static const IconEntry SCROLL_ICONS[] = {
+    {SEEKEY_SCROLL_UP,    "▲"},
+    {SEEKEY_SCROLL_DOWN,  "▼"},
+    {SEEKEY_SCROLL_LEFT,  "◀"},
+    {SEEKEY_SCROLL_RIGHT, "▶"},
+};
+
+const char *seekey_key_icon(guint code, const SeekeyConfig *config)
+{
+    /* Use the mouse button name for config-key matching, keyboard name otherwise. */
+    const char *mouse_name = seekey_mouse_button_name(code);
+    const char *name = mouse_name ? mouse_name : seekey_key_name(code);
+
+    /* Config overrides win. */
+    for (guint i = 0; i < config->icon_override_count; i++) {
+        if (g_strcmp0(config->icon_overrides[i].name, name) == 0) {
+            return config->icon_overrides[i].icon;
+        }
+    }
+
+    /* Scroll pseudo-codes. */
+    for (gsize i = 0; i < G_N_ELEMENTS(SCROLL_ICONS); i++) {
+        if (SCROLL_ICONS[i].code == code) return SCROLL_ICONS[i].icon;
+    }
+
+    /* Fall back to built-in keyboard + mouse defaults. */
+    for (gsize i = 0; i < G_N_ELEMENTS(DEFAULT_ICONS); i++) {
+        if (DEFAULT_ICONS[i].code == code) {
+            return DEFAULT_ICONS[i].icon;
+        }
+    }
+
+    return NULL;
+}
+
+const char *seekey_mouse_button_name(guint code)
+{
+    switch (code) {
+    case BTN_LEFT:    return "LMB";
+    case BTN_RIGHT:   return "RMB";
+    case BTN_MIDDLE:  return "MMB";
+    case BTN_SIDE:    return "Btn4";
+    case BTN_EXTRA:   return "Btn5";
+    case BTN_FORWARD: return "Fwd";
+    case BTN_BACK:    return "Back";
+    case BTN_TASK:    return "Task";
+    case SEEKEY_SCROLL_UP:    return "Scroll↑";
+    case SEEKEY_SCROLL_DOWN:  return "Scroll↓";
+    case SEEKEY_SCROLL_LEFT:  return "Scroll←";
+    case SEEKEY_SCROLL_RIGHT: return "Scroll→";
+    default:          return NULL;
+    }
+}
+
 gboolean seekey_is_modifier(guint code)
 {
     switch (code) {

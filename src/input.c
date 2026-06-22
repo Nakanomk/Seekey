@@ -20,12 +20,14 @@ typedef struct {
 struct SeekeyInput {
     SeekeyConfig config;
     GPtrArray *devices;
+    GPtrArray *mouse_devices;
     GThread *thread;
     GMutex lock;
     gboolean stop;
     gboolean pressed[MAX_KEY_CODE + 1];
     SeekeyKeyCallback callback;
     gpointer user_data;
+    gint64 last_scroll_time[4];  /* up / down / left / right */
 };
 
 typedef struct {
@@ -80,6 +82,14 @@ static gboolean device_has_keyboard_keys(struct libevdev *dev)
     return found >= 6;
 }
 
+static gboolean device_has_mouse_buttons(struct libevdev *dev)
+{
+    if (!libevdev_has_event_type(dev, EV_KEY)) return FALSE;
+    if (!libevdev_has_event_code(dev, EV_KEY, BTN_LEFT)) return FALSE;
+    if (!libevdev_has_event_code(dev, EV_KEY, BTN_RIGHT)) return FALSE;
+    return libevdev_has_event_type(dev, EV_REL);
+}
+
 static gboolean add_device(SeekeyInput *input, const char *path)
 {
     int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
@@ -118,6 +128,35 @@ static gboolean add_device(SeekeyInput *input, const char *path)
         g_printerr("seekey: using %s (%s)\n", device->path, device->name);
     }
 
+    return TRUE;
+}
+
+/* Like add_device but for mice — relaxed criteria, shares the fd model. */
+static gboolean add_mouse_device(SeekeyInput *input, const char *path)
+{
+    int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) return FALSE;
+
+    struct libevdev *dev = NULL;
+    int rc = libevdev_new_from_fd(fd, &dev);
+    if (rc < 0) { close(fd); return FALSE; }
+
+    if (!device_has_mouse_buttons(dev)) {
+        libevdev_free(dev);
+        close(fd);
+        return FALSE;
+    }
+
+    InputDevice *device = g_new0(InputDevice, 1);
+    device->fd = fd;
+    device->dev = dev;
+    device->path = g_strdup(path);
+    const char *name = libevdev_get_name(dev);
+    device->name = g_strdup(name ? name : "mouse");
+    g_ptr_array_add(input->mouse_devices, device);
+
+    if (input->config.debug_input)
+        g_printerr("seekey: using mouse %s (%s)\n", device->path, device->name);
     return TRUE;
 }
 
@@ -169,7 +208,8 @@ static void build_combo(SeekeyInput *input, guint code, char *buffer, gsize size
         if (combo->len > 0) {
             g_string_append(combo, " + ");
         }
-        g_string_append(combo, seekey_key_name(code));
+        const char *icon = seekey_key_icon(code, &input->config);
+        g_string_append(combo, icon ? icon : seekey_key_name(code));
     }
 
     g_strlcpy(buffer, combo->str, size);
@@ -214,6 +254,16 @@ static void emit_event(SeekeyInput *input, const struct input_event *ev)
                 dispatch->event.combo,
                 sizeof(dispatch->event.combo));
 
+    dispatch->event.modifier_mask = 0;
+    if (input->pressed[KEY_LEFTCTRL] || input->pressed[KEY_RIGHTCTRL])
+        dispatch->event.modifier_mask |= SEEKEY_MOD_CTRL;
+    if (input->pressed[KEY_LEFTSHIFT] || input->pressed[KEY_RIGHTSHIFT])
+        dispatch->event.modifier_mask |= SEEKEY_MOD_SHIFT;
+    if (input->pressed[KEY_LEFTALT] || input->pressed[KEY_RIGHTALT])
+        dispatch->event.modifier_mask |= SEEKEY_MOD_ALT;
+    if (input->pressed[KEY_LEFTMETA] || input->pressed[KEY_RIGHTMETA])
+        dispatch->event.modifier_mask |= SEEKEY_MOD_SUPER;
+
     if (input->config.debug_input) {
         g_printerr("seekey: key %u value %d: %s\n",
                    ev->code,
@@ -224,42 +274,97 @@ static void emit_event(SeekeyInput *input, const struct input_event *ev)
     g_main_context_invoke(NULL, dispatch_key_event, dispatch);
 }
 
+/* Mouse button events: only emit on press, one-shot bubbles. */
+static void emit_mouse_event(SeekeyInput *input, guint code)
+{
+    const char *name = seekey_mouse_button_name(code);
+    if (name == NULL) return;
+
+    Dispatch *dispatch = g_new0(Dispatch, 1);
+    dispatch->input = input;
+    dispatch->event.code = code;
+    dispatch->event.value = 1;
+    dispatch->event.is_mouse = TRUE;
+    g_strlcpy(dispatch->event.name, name, sizeof(dispatch->event.name));
+    g_strlcpy(dispatch->event.combo, name, sizeof(dispatch->event.combo));
+
+    if (input->config.debug_input)
+        g_printerr("seekey: mouse %u: %s\n", code, name);
+
+    g_main_context_invoke(NULL, dispatch_key_event, dispatch);
+}
+
 static gpointer input_thread(gpointer data)
 {
     SeekeyInput *input = data;
-    guint count = input->devices->len;
-    struct pollfd *fds = g_new0(struct pollfd, count);
+    guint kbd_count = input->devices->len;
+    guint mouse_count = input->mouse_devices->len;
+    guint total = kbd_count + mouse_count;
+    struct pollfd *fds = g_new0(struct pollfd, total);
 
-    for (guint i = 0; i < count; i++) {
+    for (guint i = 0; i < kbd_count; i++) {
         InputDevice *device = g_ptr_array_index(input->devices, i);
         fds[i].fd = device->fd;
         fds[i].events = POLLIN;
+    }
+    for (guint i = 0; i < mouse_count; i++) {
+        InputDevice *device = g_ptr_array_index(input->mouse_devices, i);
+        fds[kbd_count + i].fd = device->fd;
+        fds[kbd_count + i].events = POLLIN;
     }
 
     while (TRUE) {
         g_mutex_lock(&input->lock);
         gboolean stop = input->stop;
         g_mutex_unlock(&input->lock);
-        if (stop) {
-            break;
-        }
+        if (stop) break;
 
-        int rc = poll(fds, count, 100);
-        if (rc <= 0) {
-            continue;
-        }
+        int rc = poll(fds, (int)total, 100);
+        if (rc <= 0) continue;
 
-        for (guint i = 0; i < count; i++) {
-            if (!(fds[i].revents & POLLIN)) {
-                continue;
+        for (guint i = 0; i < total; i++) {
+            if (!(fds[i].revents & POLLIN)) continue;
+
+            InputDevice *device;
+            gboolean is_mouse;
+            if (i < kbd_count) {
+                device = g_ptr_array_index(input->devices, i);
+                is_mouse = FALSE;
+            } else {
+                device = g_ptr_array_index(input->mouse_devices, i - kbd_count);
+                is_mouse = TRUE;
             }
 
-            InputDevice *device = g_ptr_array_index(input->devices, i);
             struct input_event ev;
             while (libevdev_next_event(device->dev,
                                        LIBEVDEV_READ_FLAG_NORMAL,
                                        &ev) == LIBEVDEV_READ_STATUS_SUCCESS) {
-                emit_event(input, &ev);
+                if (is_mouse) {
+                    if (ev.type == EV_KEY && ev.value == 1)
+                        emit_mouse_event(input, ev.code);
+                    else if (ev.type == EV_REL && ev.code == REL_WHEEL) {
+                        int dir = ev.value > 0 ? 0 : 1;
+                        gint64 now = g_get_monotonic_time();
+                        if (now - input->last_scroll_time[dir] > 200000) {
+                            input->last_scroll_time[dir] = now;
+                            emit_mouse_event(input,
+                                             ev.value > 0 ? SEEKEY_SCROLL_UP
+                                                          : SEEKEY_SCROLL_DOWN);
+                        }
+                    }
+                    else if (ev.type == EV_REL && ev.code == REL_HWHEEL) {
+                        int dir = ev.value > 0 ? 2 : 3;
+                        gint64 now = g_get_monotonic_time();
+                        if (now - input->last_scroll_time[dir] > 200000) {
+                            input->last_scroll_time[dir] = now;
+                            emit_mouse_event(input,
+                                             ev.value > 0 ? SEEKEY_SCROLL_RIGHT
+                                                          : SEEKEY_SCROLL_LEFT);
+                        }
+                    }
+                } else {
+                    emit_event(input, &ev);
+                }
             }
         }
     }
@@ -276,6 +381,7 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
     SeekeyInput *input = g_new0(SeekeyInput, 1);
     input->config = *config;
     input->devices = g_ptr_array_new_with_free_func(input_device_free);
+    input->mouse_devices = g_ptr_array_new_with_free_func(input_device_free);
     input->callback = callback;
     input->user_data = user_data;
     g_mutex_init(&input->lock);
@@ -284,6 +390,7 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
         char path[64];
         g_snprintf(path, sizeof(path), "/dev/input/event%u", i);
         add_device(input, path);
+        add_mouse_device(input, path);
     }
 
     if (input->devices->len == 0) {
@@ -326,6 +433,8 @@ void seekey_input_free(SeekeyInput *input)
     }
     seekey_input_stop(input);
     g_ptr_array_free(input->devices, TRUE);
+    if (input->mouse_devices != NULL)
+        g_ptr_array_free(input->mouse_devices, TRUE);
     g_mutex_clear(&input->lock);
     g_free(input);
 }
