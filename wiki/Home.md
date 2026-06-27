@@ -1,5 +1,7 @@
 # Seekey Wiki
 
+**Language:** **English** · [简体中文](Home.zh-CN)
+
 Welcome! Seekey is a tiny Wayland keyboard visualizer — it shows your last
 few keystrokes as floating bubbles anchored to the bottom of the screen.
 

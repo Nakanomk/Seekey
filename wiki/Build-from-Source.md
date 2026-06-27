@@ -1,5 +1,7 @@
 # Build from Source
 
+**Language:** **English** · [简体中文](Build-from-Source.zh-CN)
+
 Prefer to build manually instead of using `install.sh`? Here's how.
 
 ## 1. Install dependencies

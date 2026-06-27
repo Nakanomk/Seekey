@@ -1,5 +1,7 @@
 # Troubleshooting
 
+**Language:** **English** · [简体中文](Troubleshooting.zh-CN)
+
 Common problems and fixes.
 
 ## No bubbles appear on first run

@@ -1,5 +1,7 @@
 # Architecture
 
+**Language:** **English** · [简体中文](Architecture.zh-CN)
+
 A tour of how the source is laid out and how data flows through it. Read this
 first if the code confuses you.
 

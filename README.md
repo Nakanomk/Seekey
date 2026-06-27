@@ -10,12 +10,6 @@ breaking your flow.
 
 ![image-20260627131530605](https://img.nkns.cc/2026/06/0de85ce2c0f23714d6743a3e4696fbca.png)
 
-```
-   ┌──────────┐  ┌──────────────┐  ┌───────────────┐
-   │ Ctrl + C │  │ Ctrl + C x3  │  │  hello world  │
-   └──────────┘  └──────────────┘  └───────────────┘
-```
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Language: C](https://img.shields.io/badge/Language-C-00599C.svg)]
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%2F%20Wayland-FCC624.svg)]

@@ -1,5 +1,7 @@
 # Window Position
 
+**Language:** **English** · [简体中文](Window-Position.zh-CN)
+
 How seekey decides where to appear, how it remembers your monitor, how
 click-through works, and how to pin the window on GNOME / KDE.
 

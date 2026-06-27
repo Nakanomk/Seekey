@@ -1,5 +1,7 @@
 ## Seekey Wiki
 
+**[English](Home)** · **[简体中文](Home.zh-CN)**
+
 **Getting started**
 - [[Installation]]
 - [[Build from Source]]

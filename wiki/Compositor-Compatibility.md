@@ -1,5 +1,7 @@
 # Compositor Compatibility
 
+**Language:** **English** · [简体中文](Compositor-Compatibility.zh-CN)
+
 Seekey reads input via `libevdev` (the kernel evdev interface), **not** the
 Wayland keyboard protocol. So input works on any Linux Wayland session as
 long as you can read `/dev/input/event*` (see [[Installation]]).

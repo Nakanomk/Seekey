@@ -1,5 +1,7 @@
 # Autostart
 
+**Language:** **English** · [简体中文](Autostart.zh-CN)
+
 `./install.sh` does **not** install an autostart entry — different Wayland
 compositors have different startup mechanisms, and the right choice depends
 on your workflow. Pick the snippet for your desktop.

@@ -1,5 +1,7 @@
 # Translations
 
+**Language:** **English** · [简体中文](Translations.zh-CN)
+
 Seekey uses GNU gettext. The Makefile compiles `po/*.po` into
 `locale/<lang>/LC_MESSAGES/seekey.mo`, and `install.sh` installs them under
 `$(PREFIX)/share/locale/<lang>/`.

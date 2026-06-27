@@ -1,5 +1,7 @@
 # Themes and Icons
 
+**Language:** **English** · [简体中文](Themes-and-Icons.zh-CN)
+
 ## Built-in themes
 
 Set `theme` in `[general]` to one of:

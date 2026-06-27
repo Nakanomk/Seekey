@@ -1,5 +1,7 @@
 # Configuration Reference
 
+**Language:** **English** · [简体中文](Configuration-Reference.zh-CN)
+
 Every config key, its section, type, allowed range, and default. Extracted
 from `src/config.c` and `seekey.ini.example`.
 

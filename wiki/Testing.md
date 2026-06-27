@@ -1,5 +1,7 @@
 # Testing
 
+**Language:** **English** · [简体中文](Testing.zh-CN)
+
 ## Run the tests
 
 ```sh

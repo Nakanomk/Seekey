@@ -19,6 +19,41 @@ static void test_field_count_matches(void)
     TEST_ASSERT_EQUAL_size_t(TUI_FIELD_COUNT, count);
 }
 
+/* Every field must belong to a valid group, and every group must have at
+ * least one field (otherwise the tab would be empty). */
+static void test_fields_have_valid_nonempty_groups(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    TuiField fields[TUI_FIELD_COUNT];
+    size_t count = 0;
+    tui_build_fields(fields, &count, &c);
+
+    for (size_t i = 0; i < count; i++) {
+        TEST_ASSERT_TRUE(fields[i].group >= 0 &&
+                         fields[i].group < TUI_GROUP_COUNT);
+    }
+    for (int g = 0; g < TUI_GROUP_COUNT; g++) {
+        TEST_ASSERT_GREATER_THAN_size_t(
+            0, tui_count_in_group(fields, count, (TuiGroup)g));
+    }
+}
+
+static void test_count_in_group_sums_to_total(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    TuiField fields[TUI_FIELD_COUNT];
+    size_t count = 0;
+    tui_build_fields(fields, &count, &c);
+
+    size_t sum = 0;
+    for (int g = 0; g < TUI_GROUP_COUNT; g++) {
+        sum += tui_count_in_group(fields, count, (TuiGroup)g);
+    }
+    TEST_ASSERT_EQUAL_size_t(count, sum);
+}
+
 static void test_field_value_uint(void)
 {
     SeekeyConfig c;
@@ -280,6 +315,8 @@ int run_tui_tests(void)
 {
     UnityBegin("test_tui.c");
     RUN_TEST(test_field_count_matches);
+    RUN_TEST(test_fields_have_valid_nonempty_groups);
+    RUN_TEST(test_count_in_group_sums_to_total);
     RUN_TEST(test_field_value_uint);
     RUN_TEST(test_field_value_bool);
     RUN_TEST(test_field_value_string_color_choice);

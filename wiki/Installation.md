@@ -1,5 +1,7 @@
 # Installation
 
+**Language:** **English** · [简体中文](Installation.zh-CN)
+
 The repo ships an `install.sh` that does the whole job: detect your distro,
 install build dependencies, build seekey, install the binary, and set up
 input permissions so seekey can read `/dev/input/event*`.

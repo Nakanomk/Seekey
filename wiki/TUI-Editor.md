@@ -1,5 +1,7 @@
 # TUI Editor
 
+**Language:** **English** · [简体中文](TUI-Editor.zh-CN)
+
 `./seekey --config-tui` opens a terminal UI to browse and edit every setting
 without hand-editing ini files.
 

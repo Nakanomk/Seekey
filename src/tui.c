@@ -19,6 +19,28 @@
 static const char *ALIGN_CHOICES[]    = {"left", "center", "right"};
 static const char *DISAPPEAR_CHOICES[] = {"instant", "fade"};
 
+static const char *TUI_GROUP_NAMES[TUI_GROUP_COUNT] = {
+    "General",
+    "Layout",
+    "Appearance",
+    "Placeholder",
+};
+
+const char *tui_group_name(TuiGroup g)
+{
+    if (g < 0 || g >= TUI_GROUP_COUNT) return "";
+    return TUI_GROUP_NAMES[g];
+}
+
+size_t tui_count_in_group(const TuiField *fields, size_t count, TuiGroup g)
+{
+    size_t n = 0;
+    for (size_t i = 0; i < count; i++) {
+        if (fields[i].group == g) n++;
+    }
+    return n;
+}
+
 /* ------------------------------------------------------------------ */
 /* Color palette (used by picker and preview)                          */
 /* ------------------------------------------------------------------ */
@@ -175,146 +197,152 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
     TuiField *f = out;
     size_t i = 0;
 
-#define UINT_FIELD(LABEL, HELP, HINT, TARGET, MIN, MAX, STEP)        \
+#define UINT_FIELD(GROUP, LABEL, HELP, HINT, TARGET, MIN, MAX, STEP)   \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
-         f[i].type = TUI_UINT;                                       \
+         f[i].type = TUI_UINT; f[i].group = (GROUP);                 \
          f[i].uint_target = &(config->TARGET);                       \
          f[i].min = (MIN); f[i].max = (MAX); f[i].step = (STEP);     \
          f[i].default_uint = config->TARGET;                         \
          i++; } while (0)
 
-#define BOOL_FIELD(LABEL, HELP, HINT, TARGET)                        \
+#define BOOL_FIELD(GROUP, LABEL, HELP, HINT, TARGET)                  \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
-         f[i].type = TUI_BOOL;                                       \
+         f[i].type = TUI_BOOL; f[i].group = (GROUP);                 \
          f[i].bool_target = &(config->TARGET);                       \
          f[i].default_bool = config->TARGET;                         \
          i++; } while (0)
 
-#define CHOICE_FIELD(LABEL, HELP, HINT, TARGET, SZ, CHOICES, COUNT)  \
+#define CHOICE_FIELD(GROUP, LABEL, HELP, HINT, TARGET, SZ, CHOICES, COUNT) \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
-         f[i].type = TUI_CHOICE;                                     \
+         f[i].type = TUI_CHOICE; f[i].group = (GROUP);               \
          f[i].string_target = (TARGET); f[i].string_size = (SZ);     \
          f[i].choices = (CHOICES); f[i].choice_count = (COUNT);      \
          g_strlcpy(f[i].default_string, (TARGET), sizeof(f[i].default_string)); \
          i++; } while (0)
 
-#define STRING_FIELD(LABEL, HELP, HINT, TARGET, SZ)                  \
+#define STRING_FIELD(GROUP, LABEL, HELP, HINT, TARGET, SZ)            \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
-         f[i].type = TUI_STRING;                                     \
+         f[i].type = TUI_STRING; f[i].group = (GROUP);               \
          f[i].string_target = (TARGET); f[i].string_size = (SZ);     \
          g_strlcpy(f[i].default_string, (TARGET), sizeof(f[i].default_string)); \
          i++; } while (0)
 
-#define COLOR_FIELD(LABEL, HELP, HINT, TARGET, SZ)                   \
+#define COLOR_FIELD(GROUP, LABEL, HELP, HINT, TARGET, SZ)             \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
-         f[i].type = TUI_COLOR;                                      \
+         f[i].type = TUI_COLOR; f[i].group = (GROUP);                \
          f[i].string_target = (TARGET); f[i].string_size = (SZ);     \
          g_strlcpy(f[i].default_string, (TARGET), sizeof(f[i].default_string)); \
          i++; } while (0)
 
-    UINT_FIELD("duration-ms", "How long key bubbles stay visible.",
+    /* --- General: timing, behaviour, layer-shell, theme --- */
+    UINT_FIELD(TUI_GROUP_GENERAL, "duration-ms", "How long key bubbles stay visible.",
                "integer 100..10000", duration_ms, 100, 10000, 100);
-    UINT_FIELD("typing-idle-ms", "Pause before typing starts a new bubble.",
+    UINT_FIELD(TUI_GROUP_GENERAL, "typing-idle-ms", "Pause before typing starts a new bubble.",
                "integer 100..5000", typing_idle_ms, 100, 5000, 50);
-    UINT_FIELD("fade-ms", "Fade animation length. 0 disables fade delay.",
+    UINT_FIELD(TUI_GROUP_GENERAL, "fade-ms", "Fade animation length. 0 disables fade delay.",
                "integer 0..3000", fade_ms, 0, 3000, 50);
-    UINT_FIELD("margin", "Bottom layer-shell margin.",
-               "integer 0..1000", margin_px, 0, 1000, 8);
-    UINT_FIELD("margin-horizontal", "Horizontal margin for left/right anchor.",
-               "integer 0..1000", margin_horizontal_px, 0, 1000, 8);
-    UINT_FIELD("max-items", "Maximum bubbles visible at once.",
+    UINT_FIELD(TUI_GROUP_GENERAL, "max-items", "Maximum bubbles visible at once.",
                "integer 1..20", max_items, 1, 20, 1);
-    UINT_FIELD("window-width", "Fallback window width.",
-               "integer 240..3000", window_width, 240, 3000, 20);
-    UINT_FIELD("window-height", "Fallback window height.",
-               "integer 80..1000", window_height, 80, 1000, 10);
 
-    CHOICE_FIELD("layer-shell",
+    CHOICE_FIELD(TUI_GROUP_GENERAL, "layer-shell",
                  "auto falls back to a window; required exits if unavailable.",
                  "pick: auto / required / off",
                  config->layer_shell, sizeof(config->layer_shell),
                  LAYER_CHOICES,
                  (guint)(sizeof(LAYER_CHOICES) / sizeof(LAYER_CHOICES[0])));
-    CHOICE_FIELD("theme",
-                 "Color preset (overridable per key in [style]).",
+    CHOICE_FIELD(TUI_GROUP_GENERAL, "theme",
+                 "Color preset (overridable per key in Appearance).",
                  "pick a theme preset",
                  config->theme, sizeof(config->theme),
                  THEME_CHOICES,
                  (guint)(sizeof(THEME_CHOICES) / sizeof(THEME_CHOICES[0])));
 
-    BOOL_FIELD("merge-repeats", "Show repeated keys as Key xN.",
+    BOOL_FIELD(TUI_GROUP_GENERAL, "merge-repeats", "Show repeated keys as Key xN.",
                "toggle yes/no", merge_repeats);
-    BOOL_FIELD("merge-modifiers", "Update modifier bubble when combo extends.",
+    BOOL_FIELD(TUI_GROUP_GENERAL, "merge-modifiers", "Update modifier bubble when combo extends.",
                "toggle yes/no", merge_modifiers);
-    BOOL_FIELD("show-mouse", "Show mouse button clicks as bubbles.",
+    BOOL_FIELD(TUI_GROUP_GENERAL, "show-mouse", "Show mouse button clicks as bubbles.",
                "toggle yes/no", show_mouse);
 
-    CHOICE_FIELD("align", "Bubble row alignment.",
+    /* --- Layout: alignment, spacing, padding, sizing --- */
+    CHOICE_FIELD(TUI_GROUP_LAYOUT, "align", "Bubble row alignment.",
                  "pick: left / center / right",
                  config->align, sizeof(config->align),
                  ALIGN_CHOICES,
                  (guint)(sizeof(ALIGN_CHOICES) / sizeof(ALIGN_CHOICES[0])));
-    CHOICE_FIELD("disappear", "Bubble removal mode.",
+    CHOICE_FIELD(TUI_GROUP_LAYOUT, "disappear", "Bubble removal mode.",
                  "pick: instant / fade",
                  config->disappear, sizeof(config->disappear),
                  DISAPPEAR_CHOICES,
                  (guint)(sizeof(DISAPPEAR_CHOICES) / sizeof(DISAPPEAR_CHOICES[0])));
 
-    UINT_FIELD("spacing", "Space between bubbles.",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "margin", "Bottom layer-shell margin.",
+               "integer 0..1000", margin_px, 0, 1000, 8);
+    UINT_FIELD(TUI_GROUP_LAYOUT, "margin-horizontal", "Horizontal margin for left/right anchor.",
+               "integer 0..1000", margin_horizontal_px, 0, 1000, 8);
+    UINT_FIELD(TUI_GROUP_LAYOUT, "spacing", "Space between bubbles.",
                "integer 0..80", box_spacing, 0, 80, 1);
-    UINT_FIELD("overlay-padding", "Outer padding around the bubble row.",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "overlay-padding", "Outer padding around the bubble row.",
                "integer 0..80", overlay_padding, 0, 80, 1);
-    UINT_FIELD("key-min-width", "Minimum bubble width (0 = content-based).",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "key-min-width", "Minimum bubble width (0 = content-based).",
                "integer 0..300", key_min_width, 0, 300, 1);
-    UINT_FIELD("key-padding-x", "Horizontal key padding.",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "key-padding-x", "Horizontal key padding.",
                "integer 0..80", key_padding_x, 0, 80, 1);
-    UINT_FIELD("key-padding-y", "Vertical key padding.",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "key-padding-y", "Vertical key padding.",
                "integer 0..80", key_padding_y, 0, 80, 1);
-    UINT_FIELD("key-radius", "Bubble corner radius.",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "key-radius", "Bubble corner radius.",
                "integer 0..80", key_radius, 0, 80, 1);
-    UINT_FIELD("key-border-width", "Bubble border width.",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "key-border-width", "Bubble border width.",
                "integer 0..20", key_border_width, 0, 20, 1);
-    UINT_FIELD("key-font-px", "Bubble font size.",
-               "integer 8..96", key_font_px, 8, 96, 1);
-    UINT_FIELD("key-font-weight", "Bubble font weight.",
-               "integer 100..1000", key_font_weight, 100, 1000, 100);
-    UINT_FIELD("typing-max-width", "Max width for grouped typing bubbles (≈chars; triggers ellipsize).",
+    UINT_FIELD(TUI_GROUP_LAYOUT, "typing-max-width", "Max width for grouped typing bubbles (≈chars; triggers ellipsize).",
                "integer 80..2000", typing_max_width, 80, 2000, 20);
+    UINT_FIELD(TUI_GROUP_LAYOUT, "window-width", "Fallback window width (non-layer-shell).",
+               "integer 240..3000", window_width, 240, 3000, 20);
+    UINT_FIELD(TUI_GROUP_LAYOUT, "window-height", "Fallback window height (non-layer-shell).",
+               "integer 80..1000", window_height, 80, 1000, 10);
 
-    COLOR_FIELD("foreground", "GTK CSS text color.",
+    /* --- Appearance: colors, shadow, font --- */
+    UINT_FIELD(TUI_GROUP_APPEARANCE, "key-font-px", "Bubble font size.",
+               "integer 8..96", key_font_px, 8, 96, 1);
+    UINT_FIELD(TUI_GROUP_APPEARANCE, "key-font-weight", "Bubble font weight.",
+               "integer 100..1000", key_font_weight, 100, 1000, 100);
+
+    COLOR_FIELD(TUI_GROUP_APPEARANCE, "foreground", "GTK CSS text color.",
                 "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
                 config->foreground, sizeof(config->foreground));
-    COLOR_FIELD("background", "GTK CSS background.",
+    COLOR_FIELD(TUI_GROUP_APPEARANCE, "background", "GTK CSS background.",
                 "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
                 config->background, sizeof(config->background));
-    COLOR_FIELD("border-color", "GTK CSS border color.",
+    COLOR_FIELD(TUI_GROUP_APPEARANCE, "border-color", "GTK CSS border color.",
                 "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
                 config->border_color, sizeof(config->border_color));
-    STRING_FIELD("shadow", "GTK CSS box-shadow.",
+    STRING_FIELD(TUI_GROUP_APPEARANCE, "shadow", "GTK CSS box-shadow.",
                  "GTK CSS box-shadow, e.g. '0 7px 22px rgba(0,0,0,0.30)'",
                  config->shadow, sizeof(config->shadow));
-    STRING_FIELD("placeholder-text", "Startup placeholder text.",
+
+    /* --- Placeholder: idle bubble text + colors --- */
+    STRING_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-text", "Startup placeholder text.",
                  "Any short text shown when no keys are pressed",
                  config->placeholder_text, sizeof(config->placeholder_text));
-    COLOR_FIELD("placeholder-foreground", "Placeholder text color.",
+    COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-foreground", "Placeholder text color.",
                 "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
                 config->placeholder_foreground,
                 sizeof(config->placeholder_foreground));
-    COLOR_FIELD("placeholder-background", "Placeholder background.",
+    COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-background", "Placeholder background.",
                 "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
                 config->placeholder_background,
                 sizeof(config->placeholder_background));
-    COLOR_FIELD("placeholder-border-color", "Placeholder border color.",
+    COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-border-color", "Placeholder border color.",
                 "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
                 config->placeholder_border_color,
                 sizeof(config->placeholder_border_color));
@@ -334,6 +362,25 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
 /* ------------------------------------------------------------------ */
 
 #ifndef SEEKEY_TEST
+
+/* Draw a labelled box border around the region (top,left) of size (h,w).
+ * Title is printed at the top edge. */
+static void tui_draw_box(int top, int left, int h, int w, const char *title)
+{
+    int r1 = top, r2 = top + h - 1;
+    int c1 = left, c2 = left + w - 1;
+    mvhline(r1, c1, ACS_HLINE, w);
+    mvhline(r2, c1, ACS_HLINE, w);
+    mvvline(r1, c1, ACS_VLINE, h);
+    mvvline(r1, c2, ACS_VLINE, h);
+    mvaddch(r1, c1, ACS_ULCORNER);
+    mvaddch(r1, c2, ACS_URCORNER);
+    mvaddch(r2, c1, ACS_LLCORNER);
+    mvaddch(r2, c2, ACS_LRCORNER);
+    if (title != NULL && title[0]) {
+        mvprintw(r1, c1 + 2, " %s ", title);
+    }
+}
 
 static void tui_init_colors(void)
 {
@@ -366,8 +413,9 @@ typedef struct {
     SeekeyConfig *config;
     TuiField *fields;
     size_t field_count;
-    int selected;
+    int selected;          /* index into fields[] (global) */
     int scroll;
+    TuiGroup current_group;
     gboolean running;
     gboolean dirty;
     char saved_path[512];
@@ -375,6 +423,28 @@ typedef struct {
     char status_line[160];
     int status_ttl;
 } TuiState;
+
+/* Build the list of global indices that belong to `group`. Returns the
+ * count and fills `out` (caller ensures enough space, e.g. field_count). */
+static int tui_group_indices(const TuiState *st, TuiGroup group, int *out)
+{
+    int n = 0;
+    for (size_t i = 0; i < st->field_count; i++) {
+        if (st->fields[i].group == group) {
+            out[n++] = (int)i;
+        }
+    }
+    return n;
+}
+
+/* Find the first global index in `group`. Used when switching tabs. */
+static int tui_first_in_group(const TuiState *st, TuiGroup group)
+{
+    for (size_t i = 0; i < st->field_count; i++) {
+        if (st->fields[i].group == group) return (int)i;
+    }
+    return 0;
+}
 
 static void tui_set_status(TuiState *st, const char *fmt, ...)
 {
@@ -482,12 +552,26 @@ static gboolean tui_choice_picker(TuiState *st, TuiField *field)
     gboolean done = FALSE, picked = FALSE;
     while (!done) {
         erase();
-        mvprintw(0, 2, "Pick %s (arrows, enter, esc)", field->label);
+        attron(A_BOLD);
+        mvprintw(0, 2, "seekey — pick: %s", field->label);
+        attroff(A_BOLD);
+        mvprintw(1, 2, "%s", field->help);
+        attron(A_DIM);
+        mvprintw(2, 2, "j/k select  Enter confirm  Esc/q cancel");
+        attroff(A_DIM);
+
+        int box_h = (int)count + 4;
+        int box_w = 30;
+        int top = 4;
+        int left = 2;
+        tui_draw_box(top, left, box_h, box_w, "Options");
+
         for (guint i = 0; i < count; i++) {
-            int y = 3 + (int)i;
-            if ((int)i == sel) attron(A_REVERSE);
-            mvprintw(y, 2, " %c %s", (int)i == sel ? '>' : ' ', choices[i]);
-            if ((int)i == sel) attroff(A_REVERSE);
+            int y = top + 2 + (int)i;
+            if ((int)i == sel) attron(A_REVERSE | A_BOLD);
+            mvprintw(y, left + 3, "%c %s", (int)i == sel ? '>' : ' ',
+                     choices[i]);
+            if ((int)i == sel) attroff(A_REVERSE | A_BOLD);
         }
         refresh();
         int ch = getch();
@@ -526,17 +610,30 @@ static gboolean tui_theme_picker(TuiState *st, SeekeyConfig *config)
     gboolean done = FALSE, picked = FALSE;
     while (!done) {
         erase();
-        mvprintw(0, 2, "Pick a theme (arrows, enter, esc)");
+        attron(A_BOLD);
+        mvprintw(0, 2, "seekey — pick a theme");
+        attroff(A_BOLD);
+        attron(A_DIM);
+        mvprintw(1, 2, "j/k select  Enter confirm  Esc/q cancel");
+        mvprintw(2, 2, "Each row shows fg / bg / border color samples.");
+        attroff(A_DIM);
+
+        int box_h = (int)n * 2 + 4;
+        int box_w = 36;
+        int top = 4;
+        int left = 2;
+        tui_draw_box(top, left, box_h, box_w, "Themes");
+
         for (gsize i = 0; i < n; i++) {
-            int y = 3 + (int)i;
-            if ((int)i == sel) attron(A_REVERSE);
-            mvprintw(y, 2, " %c %-12s", (int)i == sel ? '>' : ' ',
+            int y = top + 2 + (int)i * 2;
+            if ((int)i == sel) attron(A_REVERSE | A_BOLD);
+            mvprintw(y, left + 3, "%c %-12s", (int)i == sel ? '>' : ' ',
                      seekey_config_theme_at(i)->name);
-            if ((int)i == sel) attroff(A_REVERSE);
-            tui_draw_color_swatch(y + 1,  5, THEME_FG[i], 4);
-            tui_draw_color_swatch(y + 1, 10, THEME_BG[i], 4);
-            tui_draw_color_swatch(y + 1, 15, THEME_BD[i], 4);
-            mvprintw(y + 1, 18, "fg / bg / border");
+            if ((int)i == sel) attroff(A_REVERSE | A_BOLD);
+            tui_draw_color_swatch(y + 1, left + 4,  THEME_FG[i], 4);
+            tui_draw_color_swatch(y + 1, left + 9,  THEME_BG[i], 4);
+            tui_draw_color_swatch(y + 1, left + 14, THEME_BD[i], 4);
+            mvprintw(y + 1, left + 19, "fg / bg / border");
         }
         refresh();
         int ch = getch();
@@ -578,37 +675,49 @@ static gboolean tui_color_picker(TuiState *st, TuiField *field)
 
     while (!done) {
         erase();
-        mvprintw(0, 2, "Pick color for: %s", field->label);
-        mvprintw(1, 2, "Arrows: navigate  Enter: pick  c: custom hex  Esc: cancel");
+        attron(A_BOLD);
+        mvprintw(0, 2, "seekey — pick color: %s", field->label);
+        attroff(A_BOLD);
+        mvprintw(1, 2, "%s", field->help);
+        attron(A_DIM);
+        mvprintw(2, 2, "h/j/k/l navigate  Enter pick  c custom hex  Esc cancel");
+        attroff(A_DIM);
+
+        int pal_top = 4;
         for (int row = 0; row < TUI_PALETTE_ROWS; row++) {
             for (int col = 0; col < TUI_PALETTE_COLS; col++) {
                 int idx = row * TUI_PALETTE_COLS + col;
                 int x = 4 + col * 6;
-                int y = 4 + row * 2;
+                int y = pal_top + row * 2;
                 if (has_colors()) {
                     attron(COLOR_PAIR(TUI_COLOR_PAIR_BASE + idx));
                     mvprintw(y, x, "    ");
                     attroff(COLOR_PAIR(TUI_COLOR_PAIR_BASE + idx));
                 }
                 if (row == sel_row && col == sel_col) {
+                    attron(A_BOLD);
                     mvprintw(y, x - 2, "[");
                     mvprintw(y, x + 4, "]");
+                    attroff(A_BOLD);
                 }
                 mvprintw(y + 1, x, "%-4s", TUI_PALETTE[idx].hex + 4);
             }
         }
-        int info_y = 4 + TUI_PALETTE_ROWS * 2 + 1;
+        int info_y = pal_top + TUI_PALETTE_ROWS * 2 + 1;
+        mvhline(info_y, 0, ACS_HLINE, COLS);
         int cur = sel_row * TUI_PALETTE_COLS + sel_col;
-        mvprintw(info_y, 2, "Selected: ");
+        mvprintw(info_y + 1, 2, "Selected: ");
         if (has_colors()) {
             attron(COLOR_PAIR(TUI_COLOR_PAIR_BASE + cur));
-            mvprintw(info_y, 12, "    ");
+            mvprintw(info_y + 1, 12, "    ");
             attroff(COLOR_PAIR(TUI_COLOR_PAIR_BASE + cur));
         }
-        mvprintw(info_y, 17, " %s", TUI_PALETTE[cur].hex);
+        attron(A_BOLD);
+        mvprintw(info_y + 1, 17, " %s", TUI_PALETTE[cur].hex);
+        attroff(A_BOLD);
         if (status[0]) {
             attron(A_BOLD);
-            mvprintw(info_y + 2, 2, "%s", status);
+            mvprintw(info_y + 3, 2, "%s", status);
             attroff(A_BOLD);
         }
         refresh();
@@ -690,28 +799,52 @@ static void tui_draw_help(void)
     erase();
     mvprintw(0, 2, "Seekey TUI — key bindings");
     mvprintw(2, 2, "Navigation");
-    mvprintw(3, 4, "Up/Down or j/k      select field");
+    mvprintw(3, 4, "Up/Down or j/k      select field within current tab");
     mvprintw(4, 4, "Left/Right or h/l   adjust numeric/choice/color/bool");
-    mvprintw(5, 4, "Enter               edit / pick (depends on field type)");
-    mvprintw(6, 4, "Esc or q            back / cancel in pickers");
-    mvprintw(8, 2, "Actions");
-    mvprintw(9, 4, "s                   save to current path");
-    mvprintw(10, 4, "S                   save as (new path)");
-    mvprintw(11, 4, "r                   reset current field to default");
-    mvprintw(12, 4, "R                   reset all fields to defaults");
-    mvprintw(13, 4, "L                   reload from disk (discard changes)");
-    mvprintw(14, 4, "W                   reset window state (forget saved monitor)");
-    mvprintw(15, 4, "?                   this help");
-    mvprintw(16, 4, "q / Esc             quit (asks to save if dirty)");
-    mvprintw(18, 2, "Press any key to return");
+    mvprintw(5, 4, "Tab / Shift-Tab     next / previous tab");
+    mvprintw(6, 4, "g g                 first tab     G  last tab");
+    mvprintw(7, 4, "Enter               edit / pick (depends on field type)");
+    mvprintw(8, 4, "Esc or q            back / cancel in pickers");
+    mvprintw(10, 2, "Actions");
+    mvprintw(11, 4, "s                   save to current path");
+    mvprintw(12, 4, "S                   save as (new path)");
+    mvprintw(13, 4, "r                   reset current field to default");
+    mvprintw(14, 4, "R                   reset all fields to defaults");
+    mvprintw(15, 4, "L                   reload from disk (discard changes)");
+    mvprintw(16, 4, "W                   reset window state (forget saved monitor)");
+    mvprintw(17, 4, "?                   this help");
+    mvprintw(18, 4, "q / Esc             quit (asks to save if dirty)");
+    mvprintw(20, 2, "Press any key to return");
     refresh();
     getch();
+}
+
+/* Draw the tab bar at row 3. Highlights the current group. */
+static void tui_draw_tabs(const TuiState *st)
+{
+    int x = 2;
+    for (int g = 0; g < TUI_GROUP_COUNT; g++) {
+        const char *name = tui_group_name((TuiGroup)g);
+        int w = (int)strlen(name) + 4;  /* padding + brackets */
+        gboolean active = (g == (int)st->current_group);
+        if (active) attron(A_REVERSE | A_BOLD);
+        mvprintw(3, x, " %s ", name);
+        if (active) attroff(A_REVERSE | A_BOLD);
+        mvprintw(3, x + (int)strlen(name) + 1, " ");
+        x += w;
+    }
 }
 
 static void tui_redraw(TuiState *st)
 {
     erase();
-    mvprintw(0, 2, "Seekey config TUI");
+
+    /* Title */
+    attron(A_BOLD);
+    mvprintw(0, 2, "seekey — config editor");
+    attroff(A_BOLD);
+
+    /* Config path + dirty marker */
     const char *path = st->saved_path[0] ? st->saved_path : st->config->config_path;
     if (path[0]) {
         mvprintw(1, 2, "Config: %s", path);
@@ -721,44 +854,81 @@ static void tui_redraw(TuiState *st)
         g_free(def);
     }
     if (st->dirty) {
-        mvprintw(2, 2, "[Unsaved]");
-    } else {
-        mvprintw(2, 2, "          ");
+        attron(A_BOLD | A_BLINK);
+        mvprintw(1, COLS - 10, "[Unsaved]");
+        attroff(A_BOLD | A_BLINK);
     }
-    mvprintw(3, 2, "Keys: \x18\x19 select  \x1b\x1a adjust  Enter edit/pick"
-                   "  s save  S save as  r reset field  R reset all"
-                   "  L reload  W reset window state  ? help  q quit");
 
-    int list_top = 5;
+    /* Separator under the header */
+    mvhline(2, 0, ACS_HLINE, COLS);
+
+    /* Tab bar */
+    tui_draw_tabs(st);
+    mvhline(4, 0, ACS_HLINE, COLS);
+
+    /* Field list area: only fields in the current group. */
+    int indices[TUI_FIELD_COUNT];
+    int n = tui_group_indices(st, st->current_group, indices);
+
+    int list_top = 6;
     int list_bottom = LINES - 10;
     int visible = MAX(1, list_bottom - list_top);
-    if (st->selected < st->scroll) {
-        st->scroll = st->selected;
-    } else if (st->selected >= st->scroll + visible) {
-        st->scroll = st->selected - visible + 1;
+
+    /* Determine the selection's position within the group list. */
+    int sel_local = 0;
+    for (int i = 0; i < n; i++) {
+        if (indices[i] == st->selected) { sel_local = i; break; }
     }
 
-    for (int row = 0; row < visible; row++) {
-        int index = st->scroll + row;
-        if (index >= (int)st->field_count) break;
+    /* Scroll handling in group-local coordinates. */
+    if (sel_local < st->scroll) {
+        st->scroll = sel_local;
+    } else if (sel_local >= st->scroll + visible) {
+        st->scroll = sel_local - visible + 1;
+    }
+
+    /* Column header */
+    attron(A_DIM);
+    mvprintw(list_top - 1, 4, "%-26s %s", "Setting", "Value");
+    attroff(A_DIM);
+
+    for (int row = 0; row < visible && row < n; row++) {
+        int local = st->scroll + row;
+        if (local >= n) break;
+        int index = indices[local];
         char value[512];
         tui_field_value(&st->fields[index], value, sizeof(value));
-        if (index == st->selected) attron(A_REVERSE);
-        mvprintw(list_top + row, 2, "%-28s %s", st->fields[index].label, value);
-        if (index == st->selected) attroff(A_REVERSE);
+
+        gboolean is_sel = (index == st->selected);
+        if (is_sel) attron(A_REVERSE);
+        mvprintw(list_top + row, 4, "%-26s %s", st->fields[index].label, value);
+        if (is_sel) attroff(A_REVERSE);
+
         if (st->fields[index].type == TUI_COLOR) {
             tui_draw_color_swatch(list_top + row, 56, value, 4);
         }
     }
 
+    /* Help / status line above the preview. */
+    mvhline(LINES - 10, 0, ACS_HLINE, COLS);
     if (st->selected < (int)st->field_count) {
+        attron(A_DIM);
         mvprintw(LINES - 9, 2, "%s", st->fields[st->selected].help);
+        attroff(A_DIM);
     }
     if (st->status_ttl > 0 && st->status_line[0]) {
         attron(A_BOLD);
-        mvprintw(LINES - 9, COLS - 40, "%s", st->status_line);
+        mvprintw(LINES - 9, COLS - (int)strlen(st->status_line) - 2,
+                 "%s", st->status_line);
         attroff(A_BOLD);
     }
+
+    /* Footer key hints */
+    attron(A_DIM);
+    mvprintw(LINES - 1, 2,
+             "j/k select  h/l adjust  Tab tabs  Enter edit  s save  r reset  ? help  q quit");
+    attroff(A_DIM);
+
     tui_draw_preview(st->config);
     refresh();
 }
@@ -865,6 +1035,7 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
         .field_count = field_count,
         .selected = 0,
         .scroll = 0,
+        .current_group = TUI_GROUP_GENERAL,
         .running = TRUE,
         .dirty = FALSE,
         .saved_path = {0},
@@ -873,20 +1044,56 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
         .status_ttl = 0,
     };
     g_strlcpy(st.saved_path, config->config_path, sizeof(st.saved_path));
+    st.selected = tui_first_in_group(&st, st.current_group);
 
     while (st.running) {
         tui_redraw(&st);
         if (st.status_ttl > 0) st.status_ttl--;
         int ch = getch();
         switch (ch) {
-        case KEY_UP: case 'k':
-            st.selected = st.selected > 0
-                          ? st.selected - 1
-                          : (int)st.field_count - 1;
+        case KEY_UP: case 'k': {
+            /* Move selection up within the current group. */
+            int indices[TUI_FIELD_COUNT];
+            int n = tui_group_indices(&st, st.current_group, indices);
+            int local = 0;
+            for (int i = 0; i < n; i++) {
+                if (indices[i] == st.selected) { local = i; break; }
+            }
+            local = local > 0 ? local - 1 : n - 1;
+            st.selected = indices[local];
             break;
-        case KEY_DOWN: case 'j':
-            st.selected = st.selected + 1 < (int)st.field_count
-                          ? st.selected + 1 : 0;
+        }
+        case KEY_DOWN: case 'j': {
+            int indices[TUI_FIELD_COUNT];
+            int n = tui_group_indices(&st, st.current_group, indices);
+            int local = 0;
+            for (int i = 0; i < n; i++) {
+                if (indices[i] == st.selected) { local = i; break; }
+            }
+            local = local + 1 < n ? local + 1 : 0;
+            st.selected = indices[local];
+            break;
+        }
+        case '\t':  /* Tab → next group */
+            st.current_group = (TuiGroup)((st.current_group + 1) % TUI_GROUP_COUNT);
+            st.selected = tui_first_in_group(&st, st.current_group);
+            st.scroll = 0;
+            break;
+        case KEY_BTAB:  /* Shift-Tab → previous group */
+            st.current_group = (TuiGroup)((st.current_group - 1 + TUI_GROUP_COUNT)
+                                          % TUI_GROUP_COUNT);
+            st.selected = tui_first_in_group(&st, st.current_group);
+            st.scroll = 0;
+            break;
+        case 'g':  /* 'g' then 'g' → first tab; first field */
+            st.current_group = TUI_GROUP_GENERAL;
+            st.selected = tui_first_in_group(&st, st.current_group);
+            st.scroll = 0;
+            break;
+        case 'G':  /* last tab; first field */
+            st.current_group = (TuiGroup)(TUI_GROUP_COUNT - 1);
+            st.selected = tui_first_in_group(&st, st.current_group);
+            st.scroll = 0;
             break;
         case KEY_LEFT: case 'h': {
             TuiField *f = &fields[st.selected];
@@ -995,10 +1202,11 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
         case 'q': case 'Q': case 27: {
             if (st.dirty) {
                 if (!tui_ask_yn("Save changes before quitting?")) {
-                    /* User chose n (no): discard */
+                    /* User chose n (no): discard and quit. */
+                    st.running = FALSE;
                     break;
                 }
-                /* User chose y: save first */
+                /* User chose y: save first, then quit. */
                 if (!tui_save(&st, error)) goto done;
             }
             st.running = FALSE;

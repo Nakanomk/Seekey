@@ -1,5 +1,7 @@
 # Configuration
 
+**Language:** **English** · [简体中文](Configuration.zh-CN)
+
 Seekey reads a single INI file. Settings can also be overridden on the
 command line. Most people only touch a few keys.
 

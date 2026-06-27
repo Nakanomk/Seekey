@@ -1,5 +1,7 @@
 # Matugen Integration
 
+**Language:** **English** · [简体中文](Matugen-Integration.zh-CN)
+
 [Matugen](https://github.com/InioX/matugen) generates a Material You color
 palette from a single wallpaper image. Seekey can pick up those colors at
 startup by referencing them in `seekey.ini`.
