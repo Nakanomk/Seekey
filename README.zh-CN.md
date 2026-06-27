@@ -7,15 +7,7 @@
 把最近的按键以悬浮气泡的形式锚定在屏幕底部——一眼看清快捷键、
 修饰键和正在输入的文字，又不会打断你的节奏。
 
-<!-- HERO 截图 —— 把下面这行替换成你的截图 -->
-<!-- 建议尺寸约 1280×400，拍到屏幕底部带气泡的画面 -->
-<!-- <img src="docs/screenshot.png" alt="Seekey 显示按键气泡" width="720"> -->
-
-```
-   ┌──────────┐  ┌──────────────┐  ┌───────────────┐
-   │ Ctrl + C │  │ Ctrl + C x3  │  │  hello world  │
-   └──────────┘  └──────────────┘  └───────────────┘
-```
+![image-20260627131530605](https://img.nkns.cc/2026/06/0de85ce2c0f23714d6743a3e4696fbca.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Language: C](https://img.shields.io/badge/Language-C-00599C.svg)
