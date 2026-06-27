@@ -125,7 +125,7 @@ Right="→"
 #   Any color / text field in this file can use the @matugen:<role> syntax
 #   to pull a color from matugen's colors.json (default at
 #   ~/.cache/matugen/colors.json). Append @<float> to wrap the result in
-#   alpha(...). See README §Matugen integration for full details.
+#   alpha(...). See the wiki (Matugen Integration page) for full details.
 #
 #   Uncomment the lines below to enable; the values shown are illustrative.
 # ---------------------------------------------------------------------------

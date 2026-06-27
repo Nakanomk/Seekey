@@ -5,6 +5,9 @@ build/
 *.o
 *.a
 
+# Generated compile database (paths are machine-specific)
+compile_commands.json
+
 # Generated configs (only keep seekey.ini.example)
 seekey.ini
 config.ini

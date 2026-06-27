@@ -354,13 +354,19 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
      * extends it (more modifiers added, or a non-modifier key added to
      * a modifier-only bubble), update the label in place instead of
      * creating a new bubble.  Uses a bitmask comparison so the press
-     * order (e.g. Shift then Ctrl vs Ctrl then Shift) doesn't matter. */
+     * order (e.g. Shift then Ctrl vs Ctrl then Shift) doesn't matter.
+     *
+     * Exception: Shift + a typeable key is not a combo — it is just an
+     * uppercase letter (or shifted symbol) and should render as typed
+     * text, not as "Shift + H". So only merge when there is a non-shift
+     * modifier involved, or the key itself is a modifier. */
     if (state->config.merge_modifiers &&
         state->last_bubble != NULL &&
         !state->last_bubble_fading &&
         gtk_widget_get_parent(state->last_bubble) != NULL &&
         state->last_modifier_mask != 0 &&
-        (event->modifier_mask & state->last_modifier_mask) == state->last_modifier_mask) {
+        (event->modifier_mask & state->last_modifier_mask) == state->last_modifier_mask &&
+        (event->has_non_shift_modifier || seekey_is_modifier(event->code))) {
 
         gboolean extends =
             event->modifier_mask != state->last_modifier_mask ||

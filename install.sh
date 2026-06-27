@@ -10,7 +10,7 @@
 #   5. Install a udev rule so /dev/input/event* is readable by the `input`
 #      group, and add the current user to that group if needed.
 #
-# It does NOT install autostart entries; see README §Autostart for
+# It does NOT install autostart entries; see the wiki (Autostart page) for
 # compositor-specific startup instructions.
 
 set -euo pipefail

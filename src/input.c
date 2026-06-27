@@ -25,6 +25,10 @@ struct SeekeyInput {
     GMutex lock;
     gboolean stop;
     gboolean pressed[MAX_KEY_CODE + 1];
+    /* Shift is deferred: we don't emit it on press, only on release if no
+     * other key was pressed while Shift was held (i.e. the user really
+     * pressed Shift alone). Cleared when any non-shift key is pressed. */
+    gboolean shift_pending;
     SeekeyKeyCallback callback;
     gpointer user_data;
     gint64 last_scroll_time[4];  /* up / down / left / right */
@@ -217,29 +221,15 @@ static void build_combo(SeekeyInput *input, guint code, char *buffer, gsize size
     g_ptr_array_free(parts, TRUE);
 }
 
-static void emit_event(SeekeyInput *input, const struct input_event *ev)
+/* Build a KeyEventMessage for `code` from the current pressed state and
+ * hand it to the GTK main thread. The pressed[] table must already reflect
+ * the state we want reflected in the event (modifiers held, etc). */
+static void dispatch_press(SeekeyInput *input, guint code)
 {
-    if (ev->type != EV_KEY || ev->code > MAX_KEY_CODE) {
-        return;
-    }
-
-    if (ev->value == 2) {
-        return;
-    }
-
-    if (ev->value == 1) {
-        input->pressed[ev->code] = TRUE;
-    } else if (ev->value == 0) {
-        input->pressed[ev->code] = FALSE;
-        return;
-    } else {
-        return;
-    }
-
     Dispatch *dispatch = g_new0(Dispatch, 1);
     dispatch->input = input;
-    dispatch->event.code = ev->code;
-    dispatch->event.value = ev->value;
+    dispatch->event.code = code;
+    dispatch->event.value = 1;
     dispatch->event.shifted = input->pressed[KEY_LEFTSHIFT] ||
                               input->pressed[KEY_RIGHTSHIFT];
     dispatch->event.has_non_shift_modifier =
@@ -247,10 +237,10 @@ static void emit_event(SeekeyInput *input, const struct input_event *ev)
         input->pressed[KEY_LEFTALT] || input->pressed[KEY_RIGHTALT] ||
         input->pressed[KEY_LEFTMETA] || input->pressed[KEY_RIGHTMETA];
     g_strlcpy(dispatch->event.name,
-              seekey_key_name(ev->code),
+              seekey_key_name(code),
               sizeof(dispatch->event.name));
     build_combo(input,
-                ev->code,
+                code,
                 dispatch->event.combo,
                 sizeof(dispatch->event.combo));
 
@@ -265,13 +255,71 @@ static void emit_event(SeekeyInput *input, const struct input_event *ev)
         dispatch->event.modifier_mask |= SEEKEY_MOD_SUPER;
 
     if (input->config.debug_input) {
-        g_printerr("seekey: key %u value %d: %s\n",
-                   ev->code,
-                   ev->value,
+        g_printerr("seekey: key %u value 1: %s\n",
+                   code,
                    dispatch->event.combo);
     }
 
     g_main_context_invoke(NULL, dispatch_key_event, dispatch);
+}
+
+static gboolean is_shift_code(guint code)
+{
+    return code == KEY_LEFTSHIFT || code == KEY_RIGHTSHIFT;
+}
+
+static void emit_event(SeekeyInput *input, const struct input_event *ev)
+{
+    if (ev->type != EV_KEY || ev->code > MAX_KEY_CODE) {
+        return;
+    }
+
+    if (ev->value == 2) {
+        return;
+    }
+
+    if (ev->value == 1) {
+        /* Press. */
+        input->pressed[ev->code] = TRUE;
+
+        if (is_shift_code(ev->code)) {
+            /* Defer Shift: don't emit yet. Only show a lone Shift bubble if
+             * the user presses Shift alone and releases it without having
+             * pressed any other key. So don't arm the pending flag if some
+             * other modifier is already held (e.g. Ctrl then Shift) — in
+             * that case Shift is part of a combo, not a solo press. */
+            gboolean other_modifier_held =
+                input->pressed[KEY_LEFTCTRL] || input->pressed[KEY_RIGHTCTRL] ||
+                input->pressed[KEY_LEFTALT] || input->pressed[KEY_RIGHTALT] ||
+                input->pressed[KEY_LEFTMETA] || input->pressed[KEY_RIGHTMETA];
+            input->shift_pending = !other_modifier_held;
+            return;
+        }
+
+        /* Any non-shift key clears the pending Shift: it was used as a
+         * modifier, not pressed alone. */
+        input->shift_pending = FALSE;
+
+        dispatch_press(input, ev->code);
+        return;
+    }
+
+    if (ev->value == 0) {
+        /* Release. */
+        if (is_shift_code(ev->code)) {
+            gboolean was_pending = input->shift_pending;
+            input->pressed[ev->code] = FALSE;
+            input->shift_pending = FALSE;
+            /* If Shift was held and released with no other key pressed in
+             * between, the user really did press Shift alone — show it. */
+            if (was_pending) {
+                dispatch_press(input, ev->code);
+            }
+            return;
+        }
+        input->pressed[ev->code] = FALSE;
+        return;
+    }
 }
 
 /* Mouse button events: only emit on press, one-shot bubbles. */

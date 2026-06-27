@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: seekey 0.2.0\n"
 "Report-Msgid-Bugs-To: https://github.com/anomalyco/seekey/issues\n"
-"POT-Creation-Date: 2026-06-23 03:10+0800\n"
+"POT-Creation-Date: 2026-06-27 13:12+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,91 +17,91 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/main.c:454
+#: src/main.c:460
 msgid "seekey: map fired but no GdkSurface available\n"
 msgstr ""
 
-#: src/main.c:460
+#: src/main.c:466
 msgid "seekey: input region set to empty (click-through enabled)\n"
 msgstr ""
 
-#: src/main.c:539
+#: src/main.c:545
 msgid "seekey: compositor unknown (no WAYLAND_DISPLAY)\n"
 msgstr ""
 
-#: src/main.c:544
+#: src/main.c:550
 #, c-format
 msgid "seekey: compositor %s\n"
 msgstr ""
 
-#: src/main.c:554
+#: src/main.c:560
 msgid ""
 "  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell; layer-shell=auto "
 "works well."
 msgstr ""
 
-#: src/main.c:556
+#: src/main.c:562
 msgid "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:557
+#: src/main.c:563
 msgid ""
 "  hint: layer-shell works; window is anchored to the chosen edge and follows "
 "the focused monitor (persisted across sessions)."
 msgstr ""
 
-#: src/main.c:559
+#: src/main.c:565
 msgid "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:560
+#: src/main.c:566
 msgid "  hint: river supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:561
+#: src/main.c:567
 msgid "  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:562
+#: src/main.c:568
 msgid "  hint: labwc supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:564
+#: src/main.c:570
 msgid ""
 "  hint: KWin (default KDE Plasma) does not support wlr-layer-shell.  seekey "
 "falls back to a normal window. See README §GNOME/KDE  fallback for window "
 "rules to pin position and raise."
 msgstr ""
 
-#: src/main.c:567
+#: src/main.c:573
 msgid ""
 "  hint: GNOME does not support wlr-layer-shell.  seekey falls back to a "
 "normal window. See README §GNOME/KDE  fallback for window rules to pin "
 "position and raise."
 msgstr ""
 
-#: src/main.c:625
+#: src/main.c:631
 #, c-format
 msgid "seekey: saved monitor '%s' not found, using default\n"
 msgstr ""
 
-#: src/main.c:634
+#: src/main.c:640
 #, c-format
 msgid "seekey: layer-shell required but unavailable: %s\n"
 msgstr ""
 
-#: src/main.c:636
+#: src/main.c:642
 msgid ""
 "seekey: install gtk4-layer-shell and use a compositor that supports wlr-"
 "layer-shell.\n"
 msgstr ""
 
-#: src/main.c:640
+#: src/main.c:646
 #, c-format
 msgid "seekey: using fallback window: %s\n"
 msgstr ""
 
-#: src/main.c:641
+#: src/main.c:647
 msgid ""
 "seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
 "seekey:       The following settings have NO EFFECT in fallback mode:\n"
@@ -114,22 +114,22 @@ msgid ""
 "seekey:       See README §Compatibility model for details.\n"
 msgstr ""
 
-#: src/main.c:689 src/main.c:785 src/main.c:804 src/main.c:814
+#: src/main.c:695 src/main.c:791 src/main.c:810 src/main.c:820
 #, c-format
 msgid "seekey: %s\n"
 msgstr ""
 
-#: src/main.c:690
+#: src/main.c:696
 msgid ""
 "seekey: grant read access to /dev/input/event* or run a quick test as root.\n"
 msgstr ""
 
-#: src/main.c:789
+#: src/main.c:795
 #, c-format
 msgid "Wrote config to %s\n"
 msgstr ""
 
-#: src/main.c:808
+#: src/main.c:814
 #, c-format
 msgid "Config OK: %s\n"
 msgstr ""
