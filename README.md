@@ -11,10 +11,10 @@ breaking your flow.
 ![image-20260627131530605](https://img.nkns.cc/2026/06/0de85ce2c0f23714d6743a3e4696fbca.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Language: C](https://img.shields.io/badge/Language-C-00599C.svg)]
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%2F%20Wayland-FCC624.svg)]
-[![GTK4](https://img.shields.io/badge/GTK-4-7FE7FE.svg)]
-[![Version](https://img.shields.io/badge/version-0.2.0-44cc11.svg)]
+![Language: C](https://img.shields.io/badge/Language-C-00599C.svg)
+![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%2F%20Wayland-FCC624.svg)
+![GTK4](https://img.shields.io/badge/GTK-4-7FE7FE.svg)
+![Version](https://img.shields.io/badge/version-0.2.0-44cc11.svg)
 
 **[English](README.md)** · **[简体中文](README.zh-CN.md)** · **[📖 Wiki](https://github.com/Nakanomk/Seekey/wiki)**
 
