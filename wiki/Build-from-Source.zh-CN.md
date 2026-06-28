@@ -17,7 +17,7 @@
 
 ### 可选：`gtk4-layer-shell`
 
-它让 seekey 能锚定在屏幕底边、切工作区也不动（niri / Hyprland / Sway / river / Wayfire / labwc）。没有它，seekey 会降级成一个普通透明窗口（见 [[合成器兼容性]]）。
+它让 seekey 能锚定在屏幕底边、切工作区也不动（niri / Hyprland / Sway / river / Wayfire / labwc）。没有它，seekey 会降级成一个普通透明窗口（见 [[Compositor-Compatibility.zh-CN]]）。
 
 ```sh
 # Arch
@@ -60,7 +60,7 @@ make install PREFIX=$HOME/.local
 
 `make install` 会把二进制放到 `$PREFIX/bin/seekey`、示例配置放到 `$PREFIX/share/seekey/seekey.ini.example`、翻译放到 `$PREFIX/share/locale/<lang>/`。
 
-输入权限仍需自己配——见 [[安装#输入权限]]。
+输入权限仍需自己配——见 [[Installation.zh-CN#输入权限]]。
 
 ## Makefile 目标
 
@@ -75,4 +75,4 @@ make install PREFIX=$HOME/.local
 | `make format` | 对 `src/` 和 `tests/` 跑 `clang-format`（若已安装）|
 | `make clean` | 清理编译产物 + `locale/` |
 
-测试见 [[测试]]，i18n 流程见 [[多语言]]。
+测试见 [[Testing.zh-CN]]，i18n 流程见 [[Translations.zh-CN]]。

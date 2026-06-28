@@ -20,7 +20,7 @@ margin=96
 margin-horizontal=0
 ```
 
-它们在给定显示器上给出可复现的位置。单显示器开箱即稳。哪些合成器支持 layer-shell 见 [[合成器兼容性]]。
+它们在给定显示器上给出可复现的位置。单显示器开箱即稳。哪些合成器支持 layer-shell 见 [[Compositor-Compatibility.zh-CN]]。
 
 ## 多显示器：跨会话记忆
 

@@ -34,4 +34,4 @@
 
 ## 窗口状态重置（`W`）
 
-多显示器时，seekey 会记住上次在哪台显示器（存在 `$XDG_STATE_HOME/seekey/window.ini`）。按 `W` 清除，下次启动用当前聚焦的输出。见 [[窗口位置]]。
+多显示器时，seekey 会记住上次在哪台显示器（存在 `$XDG_STATE_HOME/seekey/window.ini`）。按 `W` 清除，下次启动用当前聚焦的输出。见 [[Window-Position.zh-CN]]。

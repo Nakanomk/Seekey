@@ -29,7 +29,7 @@
 ## 它一步步做了什么
 
 1. **识别包管理器** —— pacman / dnf / apt / zypper / apk / xbps-install。识别不到的话会打印依赖清单让你手动装。
-2. **装编译依赖** —— gtk4、libevdev、ncursesw、json-glib、pkg-config、gcc、make（外加可选的 `gtk4-layer-shell`，见 [[从源码编译]]）。
+2. **装编译依赖** —— gtk4、libevdev、ncursesw、json-glib、pkg-config、gcc、make（外加可选的 `gtk4-layer-shell`，见 [[Build-from-Source.zh-CN]]）。
 3. **编译** `make`。
 4. **安装** 二进制到 `$PREFIX/bin/seekey`，示例配置到 `$PREFIX/share/seekey/seekey.ini.example`。
 5. **配置输入权限**（除非加了 `--no-input`）：
@@ -38,7 +38,7 @@
    - 重新加载 udev 规则。
 6. **打印合成器提示** —— 识别你的桌面，若不支持 `wlr-layer-shell`（GNOME / KDE）会提醒你设 `layer-shell=off`。
 
-> 安装脚本**不会**加开机自启项。见 [[开机自启]]。
+> 安装脚本**不会**加开机自启项。见 [[Autostart.zh-CN]]。
 
 ## 卸载
 
@@ -73,4 +73,4 @@ sudo usermod -aG input "$USER"            # 然后注销再登录
 sudo chmod 644 /dev/input/event*
 ```
 
-强烈推荐方案 A。更多见 [[问题排查]]。
+强烈推荐方案 A。更多见 [[Troubleshooting.zh-CN]]。

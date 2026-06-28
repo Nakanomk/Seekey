@@ -2,7 +2,7 @@
 
 **语言：** [English](Compositor-Compatibility) · **简体中文**
 
-Seekey 通过 `libevdev`（内核 evdev 接口）读输入，**不走** Wayland 键盘协议。所以只要你能读 `/dev/input/event*`（见 [[安装]]），输入在任何 Linux Wayland 会话都能工作。
+Seekey 通过 `libevdev`（内核 evdev 接口）读输入，**不走** Wayland 键盘协议。所以只要你能读 `/dev/input/event*`（见 [[Installation.zh-CN]]），输入在任何 Linux Wayland 会话都能工作。
 
 各合成器的差异在于**浮层**：seekey 能不能锚定到边缘、切工作区时稳住（layer-shell），还是只能降级成普通窗口。
 
@@ -17,8 +17,8 @@ Seekey 通过 `libevdev`（内核 evdev 接口）读输入，**不走** Wayland 
 | Wayfire | ✓ | — | 全功能。|
 | labwc | ✓ | — | 全功能。|
 | KWinFT（KDE wlroots fork）| ✓ | — | 全功能。|
-| GNOME（mutter）| — | ✓ | 无 layer-shell。固定窗口——见 [[窗口位置]]。|
-| KDE Plasma（KWin）| — | ✓ | 无 layer-shell。用 `kwinrulesrc` 固定——见 [[窗口位置]]。|
+| GNOME（mutter）| — | ✓ | 无 layer-shell。固定窗口——见 [[Window-Position.zh-CN]]。|
+| KDE Plasma（KWin）| — | ✓ | 无 layer-shell。用 `kwinrulesrc` 固定——见 [[Window-Position.zh-CN]]。|
 | X11 会话 | — | — | 不支持（这是 Wayland 工具）。|
 | macOS / Windows / BSD | — | — | `libevdev` 仅 Linux。|
 
@@ -49,7 +49,7 @@ seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,
 seekey:        Sway, river) or install gtk4-layer-shell on a supported system.
 ```
 
-降级模式下窗口位置由合成器控制。要固定到角落 / 显示器，用窗口规则——见 [[窗口位置]]。
+降级模式下窗口位置由合成器控制。要固定到角落 / 显示器，用窗口规则——见 [[Window-Position.zh-CN]]。
 
 ## 强制降级（用于调试）
 

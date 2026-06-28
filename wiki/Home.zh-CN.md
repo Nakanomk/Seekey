@@ -17,32 +17,32 @@ make                       # 编译
 ./seekey                   # 运行
 ```
 
-第一次运行没有气泡？你需要读权限访问 `/dev/input/event*`——`./install.sh` 会帮你配好。见 [[问题排查]]。
+第一次运行没有气泡？你需要读权限访问 `/dev/input/event*`——`./install.sh` 会帮你配好。见 [[Troubleshooting.zh-CN]]。
 
 ---
 
 ## 页面索引
 
 **入门**
-- [[安装]] —— `install.sh` 选项、各发行版依赖、输入权限
-- [[从源码编译]] —— 手动编译、各发行版依赖、Makefile 目标
-- [[配置]] —— 配置文件、查找顺序、常用设置
-- [[配置项参考]] —— 每个键的类型、范围和默认值
-- [[TUI 编辑器]] —— `--config-tui` 的快捷键
+- [[Installation.zh-CN]] —— `install.sh` 选项、各发行版依赖、输入权限
+- [[Build-from-Source.zh-CN]] —— 手动编译、各发行版依赖、Makefile 目标
+- [[Configuration.zh-CN]] —— 配置文件、查找顺序、常用设置
+- [[Configuration-Reference.zh-CN]] —— 每个键的类型、范围和默认值
+- [[TUI-Editor.zh-CN]] —— `--config-tui` 的快捷键
 
 **行为与兼容性**
-- [[合成器兼容性]] —— 各桌面的 layer-shell 与降级情况
-- [[窗口位置]] —— 锚定、多显示器、点击穿透、GNOME/KDE 固定
-- [[开机自启]] —— 让 seekey 跟你的合成器一起启动
+- [[Compositor-Compatibility.zh-CN]] —— 各桌面的 layer-shell 与降级情况
+- [[Window-Position.zh-CN]] —— 锚定、多显示器、点击穿透、GNOME/KDE 固定
+- [[Autostart.zh-CN]] —— 让 seekey 跟你的合成器一起启动
 
 **外观**
-- [[主题与图标]] —— 预设、自定义颜色、自定义按键字形
-- [[Matugen 集成]] —— 跟随壁纸的配色
+- [[Themes-and-Icons.zh-CN]] —— 预设、自定义颜色、自定义按键字形
+- [[Matugen-Integration.zh-CN]] —— 跟随壁纸的配色
 
 **给贡献者**
-- [[架构]] —— 代码是怎么组织的（看不懂源码就先看这个）
-- [[测试]] —— 跑测试、理解单元测试
-- [[多语言]] —— 添加新翻译
+- [[Architecture.zh-CN]] —— 代码是怎么组织的（看不懂源码就先看这个）
+- [[Testing.zh-CN]] —— 跑测试、理解单元测试
+- [[Translations.zh-CN]] —— 添加新翻译
 
 **参考**
-- [[问题排查]] —— 输入权限、降级模式、没有气泡等
+- [[Troubleshooting.zh-CN]] —— 输入权限、降级模式、没有气泡等

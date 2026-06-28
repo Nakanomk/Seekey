@@ -42,7 +42,7 @@ border-color=alpha(#ffffff, 0.18)
 shadow=0 7px 22px rgba(0, 0, 0, 0.30)   # 完整 CSS box-shadow
 ```
 
-可接受的形式：`#rrggbb`、命名 CSS 颜色（`red`、`white`、…）、或 `alpha(#rrggbb, 0.86)`。要跟随壁纸变色，用 `@matugen:<role>`（见 [[Matugen 集成]]）。
+可接受的形式：`#rrggbb`、命名 CSS 颜色（`red`、`white`、…）、或 `alpha(#rrggbb, 0.86)`。要跟随壁纸变色，用 `@matugen:<role>`（见 [[Matugen-Integration.zh-CN]]）。
 
 ## 自定义按键图标
 
@@ -66,4 +66,4 @@ Right="→"
 
 ## 从 TUI 选主题
 
-`./seekey --config-tui` 里 `theme` 字段是 `TUI_CHOICE`——按 `Enter` 打开列表选择器实时选预设。见 [[TUI 编辑器]]。
+`./seekey --config-tui` 里 `theme` 字段是 `TUI_CHOICE`——按 `Enter` 打开列表选择器实时选预设。见 [[TUI-Editor.zh-CN]]。

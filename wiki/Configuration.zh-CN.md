@@ -85,7 +85,7 @@ align=right               # right / center / left
 disappear=fade            # fade / instant
 ```
 
-每个键的类型、范围、默认值见 [[配置项参考]]。颜色、主题、按键图标见 [[主题与图标]]。
+每个键的类型、范围、默认值见 [[Configuration-Reference.zh-CN]]。颜色、主题、按键图标见 [[Themes-and-Icons.zh-CN]]。
 
 ## 按键气泡怎么分组
 
@@ -101,4 +101,4 @@ disappear=fade            # fade / instant
 - 段落是 `[general]`、`[style]`、`[icons]`。
 - 布尔值是 `true` / `false`。
 - 颜色接受 GTK CSS：`#rrggbb`、命名 CSS 颜色、或 `alpha(#rrggbb, 0.86)`。
-- 任何颜色字段都能用 `@matugen:<role>` —— 见 [[Matugen 集成]]。
+- 任何颜色字段都能用 `@matugen:<role>` —— 见 [[Matugen-Integration.zh-CN]]。

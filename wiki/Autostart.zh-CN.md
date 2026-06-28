@@ -97,7 +97,7 @@ systemctl --user enable --now seekey.service
 
 ## 启动时传配置 / 参数
 
-按需把命令行参数（见 [[配置#命令行覆盖]]）追加到 `Exec`/`ExecStart`/`spawn`，例如：
+按需把命令行参数（见 [[Configuration.zh-CN#命令行覆盖]]）追加到 `Exec`/`ExecStart`/`spawn`，例如：
 
 ```ini
 ExecStart=/usr/local/bin/seekey --config /home/you/.config/seekey/config.ini

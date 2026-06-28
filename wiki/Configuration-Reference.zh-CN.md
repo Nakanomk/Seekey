@@ -18,8 +18,8 @@
 | `margin` | uint | 0–1000 | `0`* | layer-shell 模式下的底边距（像素）|
 | `margin-horizontal` | uint | 0–1000 | `0` | 侧边距（`align=center` 时忽略）|
 | `max-items` | uint | 1–20 | `5` | 同时最多气泡数；超出的旧气泡被裁掉 |
-| `layer-shell` | choice | `auto` / `required` / `off` | `auto` | layer-shell 模式（见 [[合成器兼容性]]）|
-| `theme` | string | 预设名 | `default` | 内置主题（见 [[主题与图标]]）|
+| `layer-shell` | choice | `auto` / `required` / `off` | `auto` | layer-shell 模式（见 [[Compositor-Compatibility.zh-CN]]）|
+| `theme` | string | 预设名 | `default` | 内置主题（见 [[Themes-and-Icons.zh-CN]]）|
 | `merge-repeats` | bool | — | `true` | 重复相同气泡堆成 "x3" |
 | `merge-modifiers` | bool | — | `true` | 有更多按键到来时扩展修饰键气泡 |
 | `show-mouse` | bool | — | `false` | 把鼠标点击和滚动显示成气泡 |
@@ -74,7 +74,7 @@
 | `placeholder-background` | color | `alpha(#111318, 0.56)` | 占位背景 |
 | `placeholder-border-color` | color | `alpha(#ffffff, 0.14)` | 占位边框 |
 
-任何颜色字段都能用 `@matugen:<role>` 或 `@matugen:<role>@<alpha>` —— 见 [[Matugen 集成]]。
+任何颜色字段都能用 `@matugen:<role>` 或 `@matugen:<role>@<alpha>` —— 见 [[Matugen-Integration.zh-CN]]。
 
 ## `[icons]`（可选）
 
@@ -107,4 +107,4 @@ Right="→"
 | `catppuccin` | `#cdd6f4` | `alpha(#1e1e2e, 0.90)` |
 | `monokai` | `#f8f8f2` | `alpha(#272822, 0.90)` |
 
-每个预设还设置了边框、阴影、占位颜色。完整色板和覆盖与预设的关系见 [[主题与图标]]。
+每个预设还设置了边框、阴影、占位颜色。完整色板和覆盖与预设的关系见 [[Themes-and-Icons.zh-CN]]。

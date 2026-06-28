@@ -95,10 +95,10 @@ seekey/
 
 ## 关键设计选择
 
-- **与合成器无关的输入。** 直接读 evdev 意味着 seekey 在任何 Wayland 合成器上都能工作，无需逐合成器协议代码。代价：需要读 `/dev/input/event*`（见 [[问题排查]]）。
+- **与合成器无关的输入。** 直接读 evdev 意味着 seekey 在任何 Wayland 合成器上都能工作，无需逐合成器协议代码。代价：需要读 `/dev/input/event*`（见 [[Troubleshooting.zh-CN]]）。
 - **运行时 `dlopen` layer-shell。** 让一个二进制同时在 layer-shell 和非 layer-shell 桌面上工作；库是可选的。
 - **线程 → 主线程递交。** evdev 轮询会阻塞，所以放线程里；所有 GTK 调用通过 `g_idle_add` 在主线程进行。
 - **通过空输入区域实现点击穿透**（在 `GdkSurface` 上），加 `KEYBOARD_MODE_NONE` 保证永不抢键盘焦点。
 - **配置是普通结构体。** 没有 getter/setter；`SeekeyConfig` 字段直接读。简单，TUI 的 `TuiField` 目标指针也直接指向它们。
 
-纯逻辑如何在无显示器下测试见 [[测试]]。
+纯逻辑如何在无显示器下测试见 [[Testing.zh-CN]]。
