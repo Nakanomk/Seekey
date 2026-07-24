@@ -43,8 +43,8 @@ gets in the way of whatever is underneath.
 ### For Arch Linux Users
 
 ```sh
-yay -S seekey # install stable version
-yay -S seekey-git # install main branch version
+yay -S seekey             # install stable version
+yay -S seekey-git         # install main branch version
 ```
 
 ### For Other Distro Users
