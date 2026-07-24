@@ -40,6 +40,15 @@ gets in the way of whatever is underneath.
 
 ## 🚀 Quick start
 
+### For Arch Linux Users
+
+```sh
+yay -S seekey # install stable version
+yay -S seekey-git # install main branch version
+```
+
+### For Other Distro Users
+
 ```sh
 make                       # build
 ./seekey --init-config     # drop a starter ./seekey.ini (optional)
@@ -93,6 +102,7 @@ The README stays short on purpose. Everything else lives in the
 **[📖 Wiki](https://github.com/Nakanomk/Seekey/wiki)**:
 
 **Getting started**
+
 - [Installation](https://github.com/Nakanomk/Seekey/wiki/Installation) — `install.sh` options, distro dependencies, input permissions
 - [Build from Source](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source) — manual build, dependencies per distro, Makefile targets
 - [Configuration](https://github.com/Nakanomk/Seekey/wiki/Configuration) — the config file, lookup order, common settings
@@ -100,20 +110,24 @@ The README stays short on purpose. Everything else lives in the
 - [TUI Editor](https://github.com/Nakanomk/Seekey/wiki/TUI-Editor) — keybindings for `--config-tui`
 
 **Behaviour & compatibility**
+
 - [Compositor Compatibility](https://github.com/Nakanomk/Seekey/wiki/Compositor-Compatibility) — layer-shell vs fallback per desktop
 - [Window Position](https://github.com/Nakanomk/Seekey/wiki/Window-Position) — anchoring, multi-monitor, click-through, GNOME/KDE pinning
 - [Autostart](https://github.com/Nakanomk/Seekey/wiki/Autostart) — start seekey with your compositor
 
 **Looks**
+
 - [Themes and Icons](https://github.com/Nakanomk/Seekey/wiki/Themes-and-Icons) — presets, custom colors, custom key glyphs
 - [Matugen Integration](https://github.com/Nakanomk/Seekey/wiki/Matugen-Integration) — wallpaper-driven colors
 
 **For contributors**
+
 - [Architecture](https://github.com/Nakanomk/Seekey/wiki/Architecture) — how the source is laid out *(start here if the code confuses you)*
 - [Testing](https://github.com/Nakanomk/Seekey/wiki/Testing) — running and understanding the unit tests
 - [Translations](https://github.com/Nakanomk/Seekey/wiki/Translations) — adding a new language
 
 **Reference**
+
 - [Troubleshooting](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting) — input permissions, fallback mode, no bubbles, etc.
 
 ---
