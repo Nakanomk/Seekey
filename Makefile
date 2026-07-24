@@ -67,7 +67,7 @@ TEST_LDLIBS := $(shell $(PKG_CONFIG) --libs glib-2.0 gobject-2.0 gio-2.0 json-gl
 all: $(TARGET) $(MO_FILES)
 
 $(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $@ $(LDLIBS)
+	$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LDLIBS)
 
 %.o: %.c src/seekey.h src/config.h src/tui.h src/window_state.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -120,7 +120,7 @@ $(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/tui.c src/
 	@mkdir -p build
 	$(CC) $(TEST_CFLAGS) $(TEST_SRCS) tests/vendor/unity/unity.c \
 	    src/config.c src/tui.c src/keynames.c src/window_state.c \
-	    -o $@ $(TEST_LDLIBS)
+	    $(LDFLAGS) -o $@ $(TEST_LDLIBS)
 
 check: $(TEST_BIN)
 	./$(TEST_BIN)
