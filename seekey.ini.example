@@ -81,10 +81,12 @@ window-width=720
 window-height=160
 
 # ---------------------------------------------------------------------------
-# Advanced: colors (GTK CSS color values)
-#   These override the theme preset. Remove or comment out a key to fall
-#   back to the preset. Acceptable values: #rrggbb, named CSS colors,
-#   or alpha(#rrggbb, 0.86) etc.
+# Advanced: key-bubble colors (GTK CSS color values)
+#   `background` is the fill color of normal key/typing bubbles; the window
+#   behind the bubbles stays transparent. These keys override the theme
+#   preset. Remove or comment out a key to fall back to the preset.
+#   Acceptable values: #rrggbb, named CSS colors, rgba(...),
+#   alpha(#rrggbb, 0.86), or @matugen:<role>.
 # ---------------------------------------------------------------------------
 foreground=#f7f7f2
 background=alpha(#111318, 0.86)

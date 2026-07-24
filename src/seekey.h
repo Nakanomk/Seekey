@@ -89,6 +89,7 @@ typedef struct {
     guint code;
     gint value;
     gboolean shifted;
+    gboolean caps_lock;
     gboolean has_non_shift_modifier;
     char name[64];
     char combo[256];
@@ -109,7 +110,7 @@ void seekey_input_stop(SeekeyInput *input);
 void seekey_input_free(SeekeyInput *input);
 
 const char *seekey_key_name(guint code);
-const char *seekey_key_text(guint code, gboolean shifted);
+const char *seekey_key_text(guint code, gboolean shifted, gboolean caps_lock);
 const char *seekey_key_icon(guint code, const SeekeyConfig *config);
 const char *seekey_mouse_button_name(guint code);
 gboolean seekey_is_modifier(guint code);

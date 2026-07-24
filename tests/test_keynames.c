@@ -27,27 +27,35 @@ static void test_key_name_unknown_format(void)
 
 static void test_key_text_shifted_pairs(void)
 {
-    TEST_ASSERT_EQUAL_STRING("a", seekey_key_text(KEY_A, FALSE));
-    TEST_ASSERT_EQUAL_STRING("A", seekey_key_text(KEY_A, TRUE));
-    TEST_ASSERT_EQUAL_STRING("1", seekey_key_text(KEY_1, FALSE));
-    TEST_ASSERT_EQUAL_STRING("!", seekey_key_text(KEY_1, TRUE));
-    TEST_ASSERT_EQUAL_STRING(";", seekey_key_text(KEY_SEMICOLON, FALSE));
-    TEST_ASSERT_EQUAL_STRING(":", seekey_key_text(KEY_SEMICOLON, TRUE));
-    TEST_ASSERT_EQUAL_STRING(",", seekey_key_text(KEY_COMMA, FALSE));
-    TEST_ASSERT_EQUAL_STRING("<", seekey_key_text(KEY_COMMA, TRUE));
+    TEST_ASSERT_EQUAL_STRING("a", seekey_key_text(KEY_A, FALSE, FALSE));
+    TEST_ASSERT_EQUAL_STRING("A", seekey_key_text(KEY_A, TRUE, FALSE));
+    TEST_ASSERT_EQUAL_STRING("1", seekey_key_text(KEY_1, FALSE, FALSE));
+    TEST_ASSERT_EQUAL_STRING("!", seekey_key_text(KEY_1, TRUE, FALSE));
+    TEST_ASSERT_EQUAL_STRING(";", seekey_key_text(KEY_SEMICOLON, FALSE, FALSE));
+    TEST_ASSERT_EQUAL_STRING(":", seekey_key_text(KEY_SEMICOLON, TRUE, FALSE));
+    TEST_ASSERT_EQUAL_STRING(",", seekey_key_text(KEY_COMMA, FALSE, FALSE));
+    TEST_ASSERT_EQUAL_STRING("<", seekey_key_text(KEY_COMMA, TRUE, FALSE));
+}
+
+static void test_key_text_caps_lock_affects_letters_only(void)
+{
+    TEST_ASSERT_EQUAL_STRING("A", seekey_key_text(KEY_A, FALSE, TRUE));
+    TEST_ASSERT_EQUAL_STRING("a", seekey_key_text(KEY_A, TRUE, TRUE));
+    TEST_ASSERT_EQUAL_STRING("1", seekey_key_text(KEY_1, FALSE, TRUE));
+    TEST_ASSERT_EQUAL_STRING("!", seekey_key_text(KEY_1, TRUE, TRUE));
 }
 
 static void test_key_text_space_unaffected_by_shift(void)
 {
-    TEST_ASSERT_EQUAL_STRING(" ", seekey_key_text(KEY_SPACE, FALSE));
-    TEST_ASSERT_EQUAL_STRING(" ", seekey_key_text(KEY_SPACE, TRUE));
+    TEST_ASSERT_EQUAL_STRING(" ", seekey_key_text(KEY_SPACE, FALSE, FALSE));
+    TEST_ASSERT_EQUAL_STRING(" ", seekey_key_text(KEY_SPACE, TRUE, TRUE));
 }
 
 static void test_key_text_unknown_returns_null(void)
 {
-    TEST_ASSERT_NULL(seekey_key_text(KEY_F1, FALSE));
-    TEST_ASSERT_NULL(seekey_key_text(KEY_LEFTCTRL, FALSE));
-    TEST_ASSERT_NULL(seekey_key_text(500, FALSE));
+    TEST_ASSERT_NULL(seekey_key_text(KEY_F1, FALSE, FALSE));
+    TEST_ASSERT_NULL(seekey_key_text(KEY_LEFTCTRL, FALSE, FALSE));
+    TEST_ASSERT_NULL(seekey_key_text(500, FALSE, FALSE));
 }
 
 static void test_key_icon_default_unicode(void)
@@ -124,6 +132,7 @@ int run_keynames_tests(void)
     RUN_TEST(test_key_name_known_codes);
     RUN_TEST(test_key_name_unknown_format);
     RUN_TEST(test_key_text_shifted_pairs);
+    RUN_TEST(test_key_text_caps_lock_affects_letters_only);
     RUN_TEST(test_key_text_space_unaffected_by_shift);
     RUN_TEST(test_key_text_unknown_returns_null);
     RUN_TEST(test_key_icon_default_unicode);

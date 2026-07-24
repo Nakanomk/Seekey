@@ -72,35 +72,40 @@ const char *seekey_key_name(guint code)
     return buffer;
 }
 
-const char *seekey_key_text(guint code, gboolean shifted)
+const char *seekey_key_text(guint code, gboolean shifted, gboolean caps_lock)
 {
+    /* Caps Lock affects letters only. Holding Shift while Caps Lock is on
+     * temporarily returns letters to lowercase, matching normal keyboard
+     * behaviour. Symbols and digits continue to depend on Shift alone. */
+    gboolean uppercase = shifted != caps_lock;
+
     switch (code) {
-    case KEY_A: return shifted ? "A" : "a";
-    case KEY_B: return shifted ? "B" : "b";
-    case KEY_C: return shifted ? "C" : "c";
-    case KEY_D: return shifted ? "D" : "d";
-    case KEY_E: return shifted ? "E" : "e";
-    case KEY_F: return shifted ? "F" : "f";
-    case KEY_G: return shifted ? "G" : "g";
-    case KEY_H: return shifted ? "H" : "h";
-    case KEY_I: return shifted ? "I" : "i";
-    case KEY_J: return shifted ? "J" : "j";
-    case KEY_K: return shifted ? "K" : "k";
-    case KEY_L: return shifted ? "L" : "l";
-    case KEY_M: return shifted ? "M" : "m";
-    case KEY_N: return shifted ? "N" : "n";
-    case KEY_O: return shifted ? "O" : "o";
-    case KEY_P: return shifted ? "P" : "p";
-    case KEY_Q: return shifted ? "Q" : "q";
-    case KEY_R: return shifted ? "R" : "r";
-    case KEY_S: return shifted ? "S" : "s";
-    case KEY_T: return shifted ? "T" : "t";
-    case KEY_U: return shifted ? "U" : "u";
-    case KEY_V: return shifted ? "V" : "v";
-    case KEY_W: return shifted ? "W" : "w";
-    case KEY_X: return shifted ? "X" : "x";
-    case KEY_Y: return shifted ? "Y" : "y";
-    case KEY_Z: return shifted ? "Z" : "z";
+    case KEY_A: return uppercase ? "A" : "a";
+    case KEY_B: return uppercase ? "B" : "b";
+    case KEY_C: return uppercase ? "C" : "c";
+    case KEY_D: return uppercase ? "D" : "d";
+    case KEY_E: return uppercase ? "E" : "e";
+    case KEY_F: return uppercase ? "F" : "f";
+    case KEY_G: return uppercase ? "G" : "g";
+    case KEY_H: return uppercase ? "H" : "h";
+    case KEY_I: return uppercase ? "I" : "i";
+    case KEY_J: return uppercase ? "J" : "j";
+    case KEY_K: return uppercase ? "K" : "k";
+    case KEY_L: return uppercase ? "L" : "l";
+    case KEY_M: return uppercase ? "M" : "m";
+    case KEY_N: return uppercase ? "N" : "n";
+    case KEY_O: return uppercase ? "O" : "o";
+    case KEY_P: return uppercase ? "P" : "p";
+    case KEY_Q: return uppercase ? "Q" : "q";
+    case KEY_R: return uppercase ? "R" : "r";
+    case KEY_S: return uppercase ? "S" : "s";
+    case KEY_T: return uppercase ? "T" : "t";
+    case KEY_U: return uppercase ? "U" : "u";
+    case KEY_V: return uppercase ? "V" : "v";
+    case KEY_W: return uppercase ? "W" : "w";
+    case KEY_X: return uppercase ? "X" : "x";
+    case KEY_Y: return uppercase ? "Y" : "y";
+    case KEY_Z: return uppercase ? "Z" : "z";
     case KEY_1: return shifted ? "!" : "1";
     case KEY_2: return shifted ? "@" : "2";
     case KEY_3: return shifted ? "#" : "3";

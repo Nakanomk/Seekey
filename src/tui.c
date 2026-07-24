@@ -140,6 +140,45 @@ void tui_adjust_field(TuiField *field, int direction)
     }
 }
 
+static gboolean tui_parse_unit_double(const char *text)
+{
+    if (text == NULL || text[0] == '\0') return FALSE;
+    char *end = NULL;
+    double value = g_ascii_strtod(text, &end);
+    while (end != NULL && g_ascii_isspace(*end)) end++;
+    return end != text && end != NULL && *end == '\0' &&
+           value >= 0.0 && value <= 1.0;
+}
+
+static gboolean tui_parse_css_color(const char *value, GdkRGBA *rgba)
+{
+    if (value == NULL || rgba == NULL) return FALSE;
+
+    char *copy = g_strdup(value);
+    char *text = g_strstrip(copy);
+    gboolean valid = gdk_rgba_parse(rgba, text);
+
+    /* GTK CSS additionally accepts alpha(<color>, <factor>), which
+     * GdkRGBA's parser does not consistently accept across GTK versions. */
+    if (!valid && g_str_has_prefix(text, "alpha(") &&
+        g_str_has_suffix(text, ")")) {
+        char *inner = g_strndup(text + 6, strlen(text) - 7);
+        char *comma = strrchr(inner, ',');
+        if (comma != NULL) {
+            *comma = '\0';
+            char *base = g_strstrip(inner);
+            char *factor = g_strstrip(comma + 1);
+            valid = gdk_rgba_parse(rgba, base) &&
+                    tui_parse_unit_double(factor);
+            if (valid) rgba->alpha *= g_ascii_strtod(factor, NULL);
+        }
+        g_free(inner);
+    }
+
+    g_free(copy);
+    return valid;
+}
+
 int tui_nearest_color_index(const char *hex)
 {
     if (hex == NULL) {
@@ -151,11 +190,11 @@ int tui_nearest_color_index(const char *hex)
         }
     }
     guint rr = 128, gg = 128, bb = 128;
-    if (hex[0] == '#' && strlen(hex) == 7) {
-        unsigned long v = g_ascii_strtoull(hex + 1, NULL, 16);
-        rr = (v >> 16) & 0xff;
-        gg = (v >> 8) & 0xff;
-        bb = v & 0xff;
+    GdkRGBA rgba;
+    if (tui_parse_css_color(hex, &rgba)) {
+        rr = (guint)(rgba.red * 255.0 + 0.5);
+        gg = (guint)(rgba.green * 255.0 + 0.5);
+        bb = (guint)(rgba.blue * 255.0 + 0.5);
     }
     int best = 0, best_dist = 0x7fffffff;
     for (gsize i = 0; i < sizeof(TUI_PALETTE) / sizeof(TUI_PALETTE[0]); i++) {
@@ -169,6 +208,34 @@ int tui_nearest_color_index(const char *hex)
         }
     }
     return best;
+}
+
+gboolean tui_color_value_valid(const char *value)
+{
+    if (value == NULL) return FALSE;
+
+    char *copy = g_strdup(value);
+    char *text = g_strstrip(copy);
+    gboolean valid = FALSE;
+
+    if (g_str_has_prefix(text, "@matugen:")) {
+        const char *spec = text + strlen("@matugen:");
+        const char *alpha = strrchr(spec, '@');
+        gsize role_len = alpha != NULL ? (gsize)(alpha - spec) : strlen(spec);
+        valid = role_len > 0;
+        for (gsize i = 0; valid && i < role_len; i++) {
+            valid = g_ascii_isalnum(spec[i]) || spec[i] == '_' || spec[i] == '-';
+        }
+        if (valid && alpha != NULL) {
+            valid = tui_parse_unit_double(alpha + 1);
+        }
+    } else {
+        GdkRGBA rgba;
+        valid = tui_parse_css_color(text, &rgba);
+    }
+
+    g_free(copy);
+    return valid;
 }
 
 void tui_reset_field(TuiField *field)
@@ -317,15 +384,15 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
     UINT_FIELD(TUI_GROUP_APPEARANCE, "key-font-weight", "Bubble font weight.",
                "integer 100..1000", key_font_weight, 100, 1000, 100);
 
-    COLOR_FIELD(TUI_GROUP_APPEARANCE, "foreground", "GTK CSS text color.",
-                "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
-                config->foreground, sizeof(config->foreground));
-    COLOR_FIELD(TUI_GROUP_APPEARANCE, "background", "GTK CSS background.",
-                "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
-                config->background, sizeof(config->background));
-    COLOR_FIELD(TUI_GROUP_APPEARANCE, "border-color", "GTK CSS border color.",
-                "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
-                config->border_color, sizeof(config->border_color));
+    COLOR_FIELD(TUI_GROUP_APPEARANCE, "foreground", "Key-bubble text color.",
+                 "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
+                 config->foreground, sizeof(config->foreground));
+    COLOR_FIELD(TUI_GROUP_APPEARANCE, "background", "Key-bubble background color.",
+                 "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
+                 config->background, sizeof(config->background));
+    COLOR_FIELD(TUI_GROUP_APPEARANCE, "border-color", "Key-bubble border color.",
+                 "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
+                 config->border_color, sizeof(config->border_color));
     STRING_FIELD(TUI_GROUP_APPEARANCE, "shadow", "GTK CSS box-shadow.",
                  "GTK CSS box-shadow, e.g. '0 7px 22px rgba(0,0,0,0.30)'",
                  config->shadow, sizeof(config->shadow));
@@ -335,15 +402,15 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
                  "Any short text shown when no keys are pressed",
                  config->placeholder_text, sizeof(config->placeholder_text));
     COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-foreground", "Placeholder text color.",
-                "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
+                 "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
                 config->placeholder_foreground,
                 sizeof(config->placeholder_foreground));
     COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-background", "Placeholder background.",
-                "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
+                 "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
                 config->placeholder_background,
                 sizeof(config->placeholder_background));
     COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-border-color", "Placeholder border color.",
-                "GTK CSS color: #rrggbb, named, or alpha(#rrggbb, A)",
+                 "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
                 config->placeholder_border_color,
                 sizeof(config->placeholder_border_color));
 
@@ -505,19 +572,6 @@ static gboolean tui_prompt_uint(const char *label, guint min, guint max,
     return TRUE;
 }
 
-static gboolean valid_hex(const char *s)
-{
-    if (s == NULL || s[0] != '#' || strlen(s) != 7) return FALSE;
-    for (int i = 1; i < 7; i++) {
-        char c = s[i];
-        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
-              (c >= 'A' && c <= 'F'))) {
-            return FALSE;
-        }
-    }
-    return TRUE;
-}
-
 static gboolean tui_prompt_color(const char *label, const char *hint,
                                  const char *current,
                                  char *out, gsize out_size)
@@ -597,9 +651,12 @@ static gboolean tui_choice_picker(TuiState *st, TuiField *field)
 
 static gboolean tui_theme_picker(TuiState *st, SeekeyConfig *config)
 {
-    static const char *THEME_FG[]   = {"#f7f7f2","#d8dee9","#f8f8f2","#cdd6f4","#f8f8f2","#1a1a2e"};
-    static const char *THEME_BG[]   = {"#111318","#2e3440","#282a36","#1e1e2e","#272822","#fafafa"};
-    static const char *THEME_BD[]   = {"#ffffff","#88c0d0","#bd93f9","#cba6f7","#a6e22e","#cccccc"};
+    /* Keep these in the same order as THEME_PRESETS in config.c. The
+     * swatches use opaque base colors because ncurses cannot preview GTK's
+     * alpha(...) syntax directly. */
+    static const char *THEME_FG[]   = {"#f7f7f2","#1a1a2e","#eceff4","#f8f8f2","#f5e0dc","#f8f8f2"};
+    static const char *THEME_BG[]   = {"#111318","#fafafa","#5e81ac","#6272a4","#585b70","#75715e"};
+    static const char *THEME_BD[]   = {"#ffffff","#cccccc","#88c0d0","#bd93f9","#cba6f7","#a6e22e"};
     gsize n = seekey_config_theme_count();
     int sel = 0;
     for (gsize i = 0; i < n; i++) {
@@ -680,7 +737,7 @@ static gboolean tui_color_picker(TuiState *st, TuiField *field)
         attroff(A_BOLD);
         mvprintw(1, 2, "%s", field->help);
         attron(A_DIM);
-        mvprintw(2, 2, "h/j/k/l navigate  Enter pick  c custom hex  Esc cancel");
+        mvprintw(2, 2, "h/j/k/l navigate  Enter pick  c custom color  Esc cancel");
         attroff(A_DIM);
 
         int pal_top = 4;
@@ -739,7 +796,7 @@ static gboolean tui_color_picker(TuiState *st, TuiField *field)
             if (tui_prompt_color(field->label, field->input_hint,
                                  field->string_target,
                                  new_color, sizeof(new_color))) {
-                if (valid_hex(new_color)) {
+                if (tui_color_value_valid(new_color)) {
                     g_strlcpy(field->string_target, new_color,
                               field->string_size);
                     g_strlcpy(field->default_string, new_color,
@@ -747,7 +804,9 @@ static gboolean tui_color_picker(TuiState *st, TuiField *field)
                     picked = TRUE;
                     done = TRUE;
                 } else {
-                    g_strlcpy(status, "Invalid hex, try #rrggbb", sizeof(status));
+                    g_strlcpy(status,
+                              "Invalid color; try #rrggbb or alpha(#rrggbb, 0.86)",
+                              sizeof(status));
                 }
             }
             break;

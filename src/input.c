@@ -25,6 +25,8 @@ struct SeekeyInput {
     GMutex lock;
     gboolean stop;
     gboolean pressed[MAX_KEY_CODE + 1];
+    gboolean caps_lock;
+    gboolean caps_lock_initialized;
     /* Shift is deferred: we don't emit it on press, only on release if no
      * other key was pressed while Shift was held (i.e. the user really
      * pressed Shift alone). Cleared when any non-shift key is pressed. */
@@ -118,6 +120,16 @@ static gboolean add_device(SeekeyInput *input, const char *path)
         libevdev_free(dev);
         close(fd);
         return FALSE;
+    }
+
+    /* Seed Caps Lock from the device LED when available. This matters when
+     * seekey starts while Caps Lock is already enabled. Subsequent EV_LED
+     * events keep the state authoritative. */
+    if (!input->caps_lock_initialized &&
+        libevdev_has_event_code(dev, EV_LED, LED_CAPSL)) {
+        input->caps_lock =
+            libevdev_get_event_value(dev, EV_LED, LED_CAPSL) != 0;
+        input->caps_lock_initialized = TRUE;
     }
 
     InputDevice *device = g_new0(InputDevice, 1);
@@ -232,6 +244,7 @@ static void dispatch_press(SeekeyInput *input, guint code)
     dispatch->event.value = 1;
     dispatch->event.shifted = input->pressed[KEY_LEFTSHIFT] ||
                               input->pressed[KEY_RIGHTSHIFT];
+    dispatch->event.caps_lock = input->caps_lock;
     dispatch->event.has_non_shift_modifier =
         input->pressed[KEY_LEFTCTRL] || input->pressed[KEY_RIGHTCTRL] ||
         input->pressed[KEY_LEFTALT] || input->pressed[KEY_RIGHTALT] ||
@@ -281,6 +294,14 @@ static void emit_event(SeekeyInput *input, const struct input_event *ev)
     if (ev->value == 1) {
         /* Press. */
         input->pressed[ev->code] = TRUE;
+
+        /* EV_LED normally follows this key event and confirms the value.
+         * Toggle here as well so keyboards that do not expose LED events
+         * still get correct Caps Lock behaviour. */
+        if (ev->code == KEY_CAPSLOCK) {
+            input->caps_lock = !input->caps_lock;
+            input->caps_lock_initialized = TRUE;
+        }
 
         if (is_shift_code(ev->code)) {
             /* Defer Shift: don't emit yet. Only show a lone Shift bubble if
@@ -411,7 +432,12 @@ static gpointer input_thread(gpointer data)
                         }
                     }
                 } else {
-                    emit_event(input, &ev);
+                    if (ev.type == EV_LED && ev.code == LED_CAPSL) {
+                        input->caps_lock = ev.value != 0;
+                        input->caps_lock_initialized = TRUE;
+                    } else {
+                        emit_event(input, &ev);
+                    }
                 }
             }
         }

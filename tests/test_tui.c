@@ -214,6 +214,8 @@ static void test_nearest_color_exact_match(void)
 {
     TEST_ASSERT_EQUAL_INT(0, tui_nearest_color_index("#ffffff"));
     TEST_ASSERT_EQUAL_INT(5, tui_nearest_color_index("#111318"));
+    TEST_ASSERT_EQUAL_INT(5,
+                          tui_nearest_color_index("alpha(#111318, 0.86)"));
 }
 
 static void test_nearest_color_closest_pick(void)
@@ -227,6 +229,21 @@ static void test_nearest_color_closest_pick(void)
 static void test_nearest_color_handles_null(void)
 {
     TEST_ASSERT_EQUAL_INT(0, tui_nearest_color_index(NULL));
+}
+
+static void test_color_value_validation(void)
+{
+    TEST_ASSERT_TRUE(tui_color_value_valid("#abcdef"));
+    TEST_ASSERT_TRUE(tui_color_value_valid("white"));
+    TEST_ASSERT_TRUE(tui_color_value_valid("alpha(#123456, 0.75)"));
+    TEST_ASSERT_TRUE(tui_color_value_valid("@matugen:surface"));
+    TEST_ASSERT_TRUE(tui_color_value_valid("@matugen:surface@0.86"));
+
+    TEST_ASSERT_FALSE(tui_color_value_valid(NULL));
+    TEST_ASSERT_FALSE(tui_color_value_valid(""));
+    TEST_ASSERT_FALSE(tui_color_value_valid("#12345"));
+    TEST_ASSERT_FALSE(tui_color_value_valid("alpha(#123456, 1.5)"));
+    TEST_ASSERT_FALSE(tui_color_value_valid("@matugen:"));
 }
 
 static void test_reset_field_uint(void)
@@ -330,6 +347,7 @@ int run_tui_tests(void)
     RUN_TEST(test_nearest_color_exact_match);
     RUN_TEST(test_nearest_color_closest_pick);
     RUN_TEST(test_nearest_color_handles_null);
+    RUN_TEST(test_color_value_validation);
     RUN_TEST(test_reset_field_uint);
     RUN_TEST(test_reset_field_bool);
     RUN_TEST(test_reset_field_string);

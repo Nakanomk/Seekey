@@ -237,8 +237,8 @@ static void test_theme_apply_known(void)
     seekey_config_set_defaults(&c);
     TEST_ASSERT_TRUE(seekey_config_apply_theme(&c, "dracula"));
     TEST_ASSERT_EQUAL_STRING("#f8f8f2", c.foreground);
-    TEST_ASSERT_EQUAL_STRING("alpha(#282a36, 0.90)", c.background);
-    TEST_ASSERT_EQUAL_STRING("alpha(#bd93f9, 0.24)", c.border_color);
+    TEST_ASSERT_EQUAL_STRING("alpha(#6272a4, 0.92)", c.background);
+    TEST_ASSERT_EQUAL_STRING("alpha(#bd93f9, 0.72)", c.border_color);
 }
 
 static void test_theme_unknown_keeps_current(void)

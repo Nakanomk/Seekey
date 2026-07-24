@@ -391,7 +391,7 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
     }
 
     if (!event->has_non_shift_modifier && !seekey_is_modifier(event->code)) {
-        typed = seekey_key_text(event->code, event->shifted);
+        typed = seekey_key_text(event->code, event->shifted, event->caps_lock);
     }
 
     if (typed != NULL) {
