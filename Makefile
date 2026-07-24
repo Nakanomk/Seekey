@@ -78,7 +78,7 @@ $(POTFILE): $(SRC)
 	xgettext --language=C --from-code=UTF-8 \
 	  --package-name=$(GETTEXT_PACKAGE) --package-version=0.2.0 \
 	  --copyright-holder="Seekey contributors" \
-	  --msgid-bugs-address="https://github.com/anomalyco/seekey/issues" \
+	  --msgid-bugs-address="https://github.com/Nakanomk/seekey/issues" \
 	  --keyword=_ --keyword=N_ \
 	  --add-comments=TRANSLATORS: \
 	  --default-domain=$(DOMAIN) \
