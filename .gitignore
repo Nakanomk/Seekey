@@ -1,5 +1,5 @@
 # Build artifacts
-seekey
+/seekey
 src/*.o
 build/
 *.o

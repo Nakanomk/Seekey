@@ -43,20 +43,21 @@ Create the AUR package repository on first push:
 
 ```sh
 git clone ssh://aur@aur.archlinux.org/seekey.git /tmp/seekey-aur
-cp PKGBUILD .SRCINFO 70-seekey.rules seekey.install /tmp/seekey-aur/
+cp PKGBUILD .SRCINFO seekey.install /tmp/seekey-aur/
 cd /tmp/seekey-aur
-git add PKGBUILD .SRCINFO 70-seekey.rules seekey.install
+git add PKGBUILD .SRCINFO seekey.install
 git commit -m "Initial import: seekey 0.2.0"
 git push
 ```
 
 Never publish the stable PKGBUILD while its GitHub archive checksum is `SKIP`.
+The committed stable PKGBUILD uses the real SHA-256 of the `v0.2.0` archive.
 
 ## Publish the rolling `seekey-git` package
 
-The VCS source intentionally uses `SKIP`; checksums are not meaningful for a
-Git repository. Build once so `pkgver()` writes the current generated version,
-then regenerate `.SRCINFO`:
+The VCS source intentionally and correctly uses `SKIP`; a moving Git checkout
+has no fixed archive checksum. Build once so `pkgver()` writes the current
+generated version, then regenerate `.SRCINFO`:
 
 ```sh
 cd packaging/aur/seekey-git
@@ -69,9 +70,9 @@ Push it to a separate AUR repository:
 
 ```sh
 git clone ssh://aur@aur.archlinux.org/seekey-git.git /tmp/seekey-git-aur
-cp PKGBUILD .SRCINFO 70-seekey.rules seekey.install /tmp/seekey-git-aur/
+cp PKGBUILD .SRCINFO seekey.install /tmp/seekey-git-aur/
 cd /tmp/seekey-git-aur
-git add PKGBUILD .SRCINFO 70-seekey.rules seekey.install
+git add PKGBUILD .SRCINFO seekey.install
 git commit -m "Initial import: seekey-git"
 git push
 ```
@@ -90,7 +91,14 @@ For a later release, for example `0.3.0`:
 3. Set `pkgver=0.3.0` and reset `pkgrel=1` in `seekey/PKGBUILD`.
 4. Run `updpkgsums`, `makepkg --cleanbuild`, `namcap`, and regenerate
    `.SRCINFO`.
-5. Copy the four packaging files into the existing AUR repo, commit, and push.
+5. Copy the three packaging files into the existing AUR repo, commit, and push.
 
 Increment `pkgrel` only for packaging-only changes to the same upstream
 version.
+
+## Input permissions on Arch
+
+Arch's systemd udev rules already assign input devices to group `input`. When
+a rule sets the group but leaves the mode unspecified, udev applies mode
+`0660`. The AUR packages therefore do not ship a competing udev rule; users
+only need to join the `input` group and log out/in.

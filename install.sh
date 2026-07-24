@@ -249,8 +249,8 @@ install_udev_rule() {
         log "udev rule already present at ${rule_path} (use --force to overwrite)"
         return
     fi
-    local rule_content='# seekey: allow members of the input group to read /dev/input/event*
-KERNEL=="event*", SUBSYSTEM=="input", GROUP="input", MODE="0640"'
+    local rule_content='# seekey: allow members of the input group to access /dev/input/event*
+KERNEL=="event*", SUBSYSTEM=="input", GROUP="input", MODE="0660"'
     log "Installing udev rule to ${rule_path}"
     if $DRY_RUN; then
         printf '    $ sudo tee %s >/dev/null <<< <heredoc>\n' "${rule_path}"
