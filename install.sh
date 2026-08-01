@@ -3,10 +3,10 @@
 #
 # What it does:
 #   1. Detect the distro and ensure build dependencies (gtk4, libevdev,
-#      ncursesw, json-glib, pkg-config, gcc, make) are installed.
+#      ncursesw, json-glib, gettext, pkg-config, gcc, make) are installed.
 #   2. Build seekey with `make`.
 #   3. Install the binary to ~/.local/bin (or /usr/local/bin with --system).
-#   4. Install the example config to ~/.local/share/seekey (or /usr/local).
+#   4. Install the example config and desktop application entry.
 #   5. Install a udev rule so /dev/input/event* is readable by the `input`
 #      group, and add the current user to that group if needed.
 #
@@ -15,11 +15,17 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "${SCRIPT_DIR}"
+
 # ---------- Defaults & argument parsing --------------------------------
 
 PREFIX="${HOME}/.local"
 BINDIR=""
 DATADIR=""
+APPLICATIONSDIR=""
+LOCALEDIR=""
+SYSTEM_INSTALL=false
 SETUP_INPUT=true
 UNINSTALL=false
 FORCE=false
@@ -42,6 +48,7 @@ Options:
 
 After install:
   - Run 'seekey' to start
+  - Run 'seekey --config-gui' to open graphical settings
   - Run 'seekey --config-tui' to edit settings
   - Log out and back in for input group changes to take effect
 EOF
@@ -49,8 +56,8 @@ EOF
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --user)        PREFIX="${HOME}/.local" ;;
-        --system)      PREFIX="/usr/local" ;;
+        --user)        PREFIX="${HOME}/.local"; SYSTEM_INSTALL=false ;;
+        --system)      PREFIX="/usr/local"; SYSTEM_INSTALL=true ;;
         --no-input)    SETUP_INPUT=false ;;
         --force)       FORCE=true ;;
         --uninstall)   UNINSTALL=true ;;
@@ -64,10 +71,17 @@ done
 
 BINDIR="${PREFIX}/bin"
 DATADIR="${PREFIX}/share/seekey"
+APPLICATIONSDIR="${PREFIX}/share/applications"
+LOCALEDIR="${PREFIX}/share/locale"
 SUDO=""
-if [[ ! -w "${PREFIX}" ]]; then
+if $SYSTEM_INSTALL; then
+    command -v sudo >/dev/null 2>&1 || {
+        echo "sudo is required for --system" >&2
+        exit 1
+    }
     SUDO="sudo"
 fi
+CURRENT_USER="${SUDO_USER:-${USER:-$(id -un)}}"
 
 # ---------- Logging helpers --------------------------------------------
 
@@ -112,38 +126,38 @@ case "$PM" in
     pacman)
         PM_INSTALL_DEPS_ARGS=(sudo pacman -S --needed --noconfirm
                               gtk4 libevdev ncurses json-glib
-                              pkgconf gcc make)
+                              gettext pkgconf gcc make)
         PM_PRESENT() { pacman -Qi "$1" >/dev/null 2>&1; }
         ;;
     dnf)
         PM_INSTALL_DEPS_ARGS=(sudo dnf install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel pkgconf-pkg-config
-                              gcc make)
+                              gettext gcc make)
         PM_PRESENT() { rpm -q "$1" >/dev/null 2>&1; }
         ;;
     apt)
         PM_INSTALL_DEPS_ARGS=(sudo apt install -y
                               libgtk-4-dev libevdev-dev libncursesw5-dev
-                              libjson-glib-dev pkg-config build-essential)
+                              libjson-glib-dev gettext pkg-config build-essential)
         PM_PRESENT() { dpkg -s "$1" >/dev/null 2>&1; }
         ;;
     zypper)
         PM_INSTALL_DEPS_ARGS=(sudo zypper install -y
                               gtk4-devel libevdev-devel ncurses-devel
-                              json-glib-devel pkg-config gcc make)
+                              json-glib-devel gettext-tools pkg-config gcc make)
         PM_PRESENT() { rpm -q "$1" >/dev/null 2>&1; }
         ;;
     apk)
         PM_INSTALL_DEPS_ARGS=(sudo apk add gtk4-dev libevdev-dev
                               ncurses-dev json-glib-dev pkgconf
-                              gcc make musl-dev)
+                              gettext gcc make musl-dev)
         PM_PRESENT() { apk info -e "$1" >/dev/null 2>&1; }
         ;;
     xbps-install)
         PM_INSTALL_DEPS_ARGS=(sudo xbps-install -y
                               gtk4-devel libevdev-devel ncurses-devel
-                              json-glib-devel pkg-config gcc make)
+                              json-glib-devel gettext pkg-config gcc make)
         PM_PRESENT() { xbps-query "$1" >/dev/null 2>&1; }
         ;;
     *)
@@ -152,8 +166,7 @@ case "$PM" in
         warn "  - libevdev (development files)"
         warn "  - ncursesw (development files)"
         warn "  - json-glib (development files)"
-        warn "  - pkg-config, gcc, make"
-        INSTALL_DEPS=false
+        warn "  - gettext, pkg-config, gcc, make"
         ;;
 esac
 
@@ -161,17 +174,19 @@ esac
 
 check_build_deps() {
     local missing=()
-    for tool in pkg-config make gcc; do
+    for tool in pkg-config make gcc xgettext msgmerge msgfmt; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
-    for pkg in gtk4 libevdev ncursesw json-glib-1.0; do
-        pkg-config --exists "$pkg" 2>/dev/null || missing+=("$pkg")
-    done
+    if command -v pkg-config >/dev/null 2>&1; then
+        for pkg in gtk4 libevdev ncursesw json-glib-1.0; do
+            pkg-config --exists "$pkg" 2>/dev/null || missing+=("$pkg")
+        done
+    fi
     printf '%s\n' "${missing[@]}"
 }
 
 MISSING=()
-if $INSTALL_DEPS; then
+if ! $UNINSTALL; then
     while IFS= read -r line; do
         [[ -n "$line" ]] && MISSING+=("$line")
     done < <(check_build_deps)
@@ -187,12 +202,14 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
     fi
     log "Installing via ${PM}..."
     run "${PM_INSTALL_DEPS_ARGS[@]}"
-    MISSING=()
-    while IFS= read -r line; do
-        [[ -n "$line" ]] && MISSING+=("$line")
-    done < <(check_build_deps)
-    if [[ ${#MISSING[@]} -gt 0 ]]; then
-        die "Dependencies still missing after install: ${MISSING[*]}"
+    if ! $DRY_RUN; then
+        MISSING=()
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && MISSING+=("$line")
+        done < <(check_build_deps)
+        if [[ ${#MISSING[@]} -gt 0 ]]; then
+            die "Dependencies still missing after install: ${MISSING[*]}"
+        fi
     fi
 fi
 
@@ -229,6 +246,12 @@ do_uninstall() {
     log "Uninstalling seekey from ${PREFIX}"
     run ${SUDO} rm -f "${BINDIR}/seekey"
     run ${SUDO} rm -rf "${DATADIR}"
+    run ${SUDO} rm -f "${APPLICATIONSDIR}/dev.seekey.desktop"
+    local mo
+    for mo in "${LOCALEDIR}"/*/LC_MESSAGES/seekey.mo; do
+        [[ -f "${mo}" ]] || continue
+        run ${SUDO} rm -f "${mo}"
+    done
     if [[ -f "${HOME}/.config/autostart/seekey.desktop" ]]; then
         run rm -f "${HOME}/.config/autostart/seekey.desktop"
     fi
@@ -266,11 +289,11 @@ setup_input_group() {
         log "Creating 'input' group"
         run sudo groupadd input
     fi
-    if id -nG "${USER}" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
-        ok "User ${USER} is already in the 'input' group"
+    if id -nG "${CURRENT_USER}" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
+        ok "User ${CURRENT_USER} is already in the 'input' group"
     else
-        log "Adding ${USER} to the 'input' group"
-        run sudo usermod -aG input "${USER}"
+        log "Adding ${CURRENT_USER} to the 'input' group"
+        run sudo usermod -aG input "${CURRENT_USER}"
         warn "*** Log out and back in for the new group to take effect ***"
     fi
 }
@@ -279,7 +302,7 @@ setup_input_group() {
 
 build_seekey() {
     log "Building seekey"
-    run make
+    run make -B PREFIX="${PREFIX}"
 }
 
 # ---------- Install binary & data -------------------------------------
@@ -293,6 +316,22 @@ install_files() {
         run ${SUDO} install -Dm644 seekey.ini.example \
             "${DATADIR}/seekey.ini.example"
     fi
+
+    if [[ -f data/dev.seekey.desktop ]]; then
+        log "Installing desktop entry to ${APPLICATIONSDIR}/dev.seekey.desktop"
+        run ${SUDO} install -Dm644 data/dev.seekey.desktop \
+            "${APPLICATIONSDIR}/dev.seekey.desktop"
+    fi
+
+    local mo lang
+    for mo in locale/*/LC_MESSAGES/seekey.mo; do
+        [[ -f "${mo}" ]] || continue
+        lang="${mo#locale/}"
+        lang="${lang%%/*}"
+        log "Installing ${lang} translation"
+        run ${SUDO} install -Dm644 "${mo}" \
+            "${LOCALEDIR}/${lang}/LC_MESSAGES/seekey.mo"
+    done
 
     if [[ ":${PATH}:" != *":${BINDIR}:"* ]]; then
         warn "${BINDIR} is not on your PATH."
@@ -312,6 +351,8 @@ echo "Installing seekey"
 echo "  Prefix:   ${PREFIX}"
 echo "  Bindir:   ${BINDIR}"
 echo "  Datadir:  ${DATADIR}"
+echo "  Desktop:  ${APPLICATIONSDIR}/dev.seekey.desktop"
+echo "  Locale:   ${LOCALEDIR}"
 $DRY_RUN && echo "  (dry-run: no changes will be made)"
 echo
 
@@ -328,8 +369,9 @@ print_compositor_hints
 echo
 ok "Done."
 echo "  Run:    ${BINDIR}/seekey"
-echo "  Edit:   ${BINDIR}/seekey --config-tui"
-if $SETUP_INPUT && ! id -nG "${USER}" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
+echo "  GUI:    ${BINDIR}/seekey --config-gui"
+echo "  TUI:    ${BINDIR}/seekey --config-tui"
+if $SETUP_INPUT && ! id -nG "${CURRENT_USER}" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
     echo
     warn "Don't forget to log out and back in so the 'input' group takes effect."
 fi

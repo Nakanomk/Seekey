@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Name=Seekey
+Name[zh_CN]=Seekey 按键显示
+Comment=Configure or start the Seekey key overlay
+Comment[zh_CN]=配置或启动 Seekey 按键浮层
+Exec=seekey --xdg --desktop-launch
+TryExec=seekey
+Icon=input-keyboard-symbolic
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=keyboard;overlay;keystroke;Wayland;
+StartupNotify=true
+Actions=Configure;Overlay;
+
+[Desktop Action Configure]
+Name=Open settings
+Name[zh_CN]=打开设置
+Exec=seekey --xdg --config-gui
+
+[Desktop Action Overlay]
+Name=Start key overlay
+Name[zh_CN]=启动按键浮层
+Exec=seekey --xdg

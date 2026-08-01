@@ -73,6 +73,11 @@ static void test_key_icon_default_unicode(void)
     const char *sp = seekey_key_icon(KEY_SPACE, &c);
     TEST_ASSERT_NOT_NULL(sp);
     TEST_ASSERT_EQUAL_STRING("␣", sp);
+
+    TEST_ASSERT_EQUAL_STRING("⬆", seekey_key_icon(KEY_UP, &c));
+    TEST_ASSERT_EQUAL_STRING("⬇", seekey_key_icon(KEY_DOWN, &c));
+    TEST_ASSERT_EQUAL_STRING("⬅", seekey_key_icon(KEY_LEFT, &c));
+    TEST_ASSERT_EQUAL_STRING("➡", seekey_key_icon(KEY_RIGHT, &c));
 }
 
 static void test_key_icon_override_wins(void)

@@ -3,6 +3,7 @@
 #include "window_state.h"
 
 #include <glib.h>
+#include <glib/gstdio.h>
 #include <stdlib.h>
 
 static char *saved_xdg_state = NULL;
@@ -54,6 +55,7 @@ static void test_state_load_missing_returns_zeroed(void)
     TEST_ASSERT_TRUE(seekey_window_state_load(&s, &err));
     TEST_ASSERT_NULL(err);
     TEST_ASSERT_EQUAL_STRING("", s.monitor);
+    TEST_ASSERT_FALSE(s.desktop_preference_set);
 }
 
 static void test_state_save_load_roundtrip(void)
@@ -62,6 +64,8 @@ static void test_state_save_load_roundtrip(void)
     SeekeyWindowState in;
     memset(&in, 0, sizeof(in));
     g_strlcpy(in.monitor, "HDMI-A-1", sizeof(in.monitor));
+    in.desktop_preference_set = TRUE;
+    in.desktop_show_menu = TRUE;
     GError *err = NULL;
     TEST_ASSERT_TRUE(seekey_window_state_save(&in, &err));
     TEST_ASSERT_NULL(err);
@@ -71,6 +75,28 @@ static void test_state_save_load_roundtrip(void)
     TEST_ASSERT_TRUE(seekey_window_state_load(&out, &err));
     TEST_ASSERT_NULL(err);
     TEST_ASSERT_EQUAL_STRING("HDMI-A-1", out.monitor);
+    TEST_ASSERT_TRUE(out.desktop_preference_set);
+    TEST_ASSERT_TRUE(out.desktop_show_menu);
+}
+
+static void test_clear_monitor_preserves_desktop_preference(void)
+{
+    SeekeyWindowState in = {0};
+    g_strlcpy(in.monitor, "DP-2", sizeof(in.monitor));
+    in.desktop_preference_set = TRUE;
+    in.desktop_show_menu = FALSE;
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_window_state_save(&in, &err));
+    TEST_ASSERT_NULL(err);
+
+    seekey_window_state_clear_monitor();
+
+    SeekeyWindowState out;
+    TEST_ASSERT_TRUE(seekey_window_state_load(&out, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("", out.monitor);
+    TEST_ASSERT_TRUE(out.desktop_preference_set);
+    TEST_ASSERT_FALSE(out.desktop_show_menu);
 }
 
 static void test_state_load_malformed_returns_zeroed(void)
@@ -116,13 +142,33 @@ static void test_state_clear_noop_when_missing(void)
 
 int run_window_state_tests(void)
 {
+    GError *error = NULL;
+    char *state_home = g_dir_make_tmp("seekey-state-test-XXXXXX", &error);
+    if (state_home == NULL) {
+        g_error("failed to create temporary state directory: %s",
+                error != NULL ? error->message : "unknown error");
+    }
+    g_clear_error(&error);
+    env_swap_save();
+    g_setenv("XDG_STATE_HOME", state_home, TRUE);
+
     UnityBegin("test_window_state.c");
     RUN_TEST(test_state_path_default);
     RUN_TEST(test_state_path_env_override);
     RUN_TEST(test_state_load_missing_returns_zeroed);
     RUN_TEST(test_state_save_load_roundtrip);
+    RUN_TEST(test_clear_monitor_preserves_desktop_preference);
     RUN_TEST(test_state_load_malformed_returns_zeroed);
     RUN_TEST(test_state_clear_removes_file);
     RUN_TEST(test_state_clear_noop_when_missing);
-    return UnityEnd();
+    int failures = UnityEnd();
+
+    seekey_window_state_clear();
+    char *seekey_dir = g_build_filename(state_home, "seekey", NULL);
+    g_rmdir(seekey_dir);
+    g_rmdir(state_home);
+    g_free(seekey_dir);
+    g_free(state_home);
+    env_swap_restore();
+    return failures;
 }

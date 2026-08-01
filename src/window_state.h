@@ -8,6 +8,8 @@
  * sessions). Located under $XDG_STATE_HOME. */
 typedef struct {
     char monitor[128];   /* gdk_monitor_get_connector() output, e.g. "HDMI-A-1" */
+    gboolean desktop_preference_set;
+    gboolean desktop_show_menu;
 } SeekeyWindowState;
 
 /* Return a newly-allocated path to the state file (caller frees with
@@ -25,6 +27,9 @@ gboolean seekey_window_state_save(const SeekeyWindowState *state,
 
 /* Remove the state file. No-op if it does not exist. */
 void seekey_window_state_clear(void);
+
+/* Clear only the remembered monitor while preserving desktop preferences. */
+void seekey_window_state_clear_monitor(void);
 
 /* Look up a GdkMonitor by connector name. Returns NULL if no match. */
 GdkMonitor *seekey_find_monitor_by_name(GdkDisplay *display, const char *name);

@@ -4,7 +4,9 @@
 extern int run_config_tests(void);
 extern int run_tui_tests(void);
 extern int run_keynames_tests(void);
+extern int run_style_tests(void);
 extern int run_window_state_tests(void);
+extern int run_runtime_lock_tests(void);
 
 void setUp(void)
 {
@@ -23,7 +25,9 @@ int main(int argc, char **argv)
     failures += run_config_tests();
     failures += run_tui_tests();
     failures += run_keynames_tests();
+    failures += run_style_tests();
     failures += run_window_state_tests();
+    failures += run_runtime_lock_tests();
     test_cleanup();
     return failures;
 }

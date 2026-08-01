@@ -13,7 +13,7 @@
 ![Language: C](https://img.shields.io/badge/Language-C-00599C.svg)
 ![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%2F%20Wayland-FCC624.svg)
 ![GTK4](https://img.shields.io/badge/GTK-4-7FE7FE.svg)
-![Version](https://img.shields.io/badge/version-0.2.0-44cc11.svg)
+![Version](https://img.shields.io/badge/version-0.2.1-44cc11.svg)
 
 **[English](README.md)** · **[简体中文](README.zh-CN.md)** · **[📖 Wiki](https://github.com/Nakanomk/Seekey/wiki)**
 
@@ -40,6 +40,7 @@ Seekey 是一个 Linux Wayland 下的键盘可视化工具。它监听你的键�
 ```sh
 make                       # 编译
 ./seekey --init-config     # 生成一个 ./seekey.ini 起点（可选）
+./seekey --config-gui      # 打开图形配置菜单
 ./seekey --config-tui      # 在终端里改设置（可选）
 ./seekey                   # 运行
 ```
@@ -63,7 +64,8 @@ make                       # 编译
 | 🖱️ **点击穿透** | 点击会直接穿透到下面的应用，键盘焦点也永远不会被抢。 |
 | 🎨 **开箱即好看** | 六个内置主题（default / nord / dracula / catppuccin / monokai / light）+ 自定义颜色 + 自定义按键图标。 |
 | 🖼️ **认识 Matugen** | 配置里写 `@matugen:<role>`，配色就能跟随你的壁纸。 |
-| ⌨️ **TUI 配置编辑器** | 在终端里翻 / 改 / 存所有设置，不用手编 ini。 |
+| ⚙️ **启动器式 GUI** | 按 fuzzel 布局实现的紧凑可搜索菜单，并用真实 GTK/CSS 布局实时预览样式。 |
+| ⌨️ **TUI 配置编辑器** | 在终端里翻 / 改 / 存所有设置，同时用按键浮层预览未保存修改。 |
 
 ---
 
@@ -77,6 +79,13 @@ make                       # 编译
 ./install.sh --system       # 系统安装到 /usr/local（需 sudo）
 ./install.sh --uninstall    # 卸载
 ```
+
+安装时还会创建 Seekey 桌面入口。第一次从应用菜单启动时，可以选择以后
+默认打开设置菜单，或直接启动按键浮层。`seekey --config-gui` 始终会打开设置。
+
+菜单会在存在时读取 `~/.config/fuzzel/fuzzel.ini` 的布局与配色，包括写入
+该文件的 Matugen 颜色。无需安装 fuzzel；文件缺失或损坏时会使用安全的内置
+默认值。
 
 想自己手动编译？看 wiki 里的
 [从源码编译](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)。
@@ -93,6 +102,7 @@ README 故意写得很短，其余内容都在
 - [从源码编译](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source) —— 手动编译、依赖、Makefile 目标
 - [配置](https://github.com/Nakanomk/Seekey/wiki/Configuration) —— 配置文件、查找顺序、常用设置
 - [配置项参考](https://github.com/Nakanomk/Seekey/wiki/Configuration-Reference) —— 每个键的类型、范围和默认值
+- [GUI 编辑器](https://github.com/Nakanomk/Seekey/wiki/GUI-Editor) —— 图形菜单和 desktop 启动行为
 - [TUI 编辑器](https://github.com/Nakanomk/Seekey/wiki/TUI-Editor) —— `--config-tui` 的快捷键
 
 **行为与兼容性**

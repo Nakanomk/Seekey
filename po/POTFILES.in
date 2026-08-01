@@ -1,4 +1,9 @@
 src/main.c
+src/gui.c
+src/style.c
+src/preview_session.c
+src/runtime_lock.c
 src/layer_shell.c
 src/tui.c
 src/config.c
+src/window_state.c

@@ -1,6 +1,6 @@
 #pragma once
 
-#define SEEKEY_VERSION "0.2.0"
+#define SEEKEY_VERSION "0.2.1"
 
 /* gettext package name and locale dir (overridable at build time) */
 #ifndef GETTEXT_PACKAGE
@@ -41,6 +41,9 @@ typedef struct {
     gboolean no_layer_shell;
     gboolean debug_input;
     gboolean config_tui;
+    gboolean config_gui;
+    gboolean preview_child;
+    gboolean desktop_launch;
     gboolean init_config;
     gboolean force;
     gboolean print_config;
@@ -71,6 +74,7 @@ typedef struct {
     char disappear[16];
     char layer_shell[16];
     char theme[32];
+    char key_font_family[128];
     char foreground[64];
     char background[64];
     char border_color[64];
@@ -120,3 +124,4 @@ gboolean seekey_layer_shell_try_init(GtkWindow *window,
                                      const SeekeyConfig *config,
                                      GdkMonitor *monitor,
                                      GError **error);
+gboolean seekey_layer_shell_try_init_menu(GtkWindow *window, GError **error);

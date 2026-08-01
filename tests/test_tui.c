@@ -326,6 +326,26 @@ static void test_bool_field_has_no_string_target(void)
     }
 }
 
+static void test_typing_max_width_accepts_unlimited(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    TuiField fields[TUI_FIELD_COUNT];
+    size_t count = 0;
+    tui_build_fields(fields, &count, &c);
+
+    for (size_t i = 0; i < count; i++) {
+        if (g_strcmp0(fields[i].label, "typing-max-width") == 0) {
+            TEST_ASSERT_EQUAL_UINT(0, fields[i].min);
+            *fields[i].uint_target = 20;
+            tui_adjust_field(&fields[i], -1);
+            TEST_ASSERT_EQUAL_UINT(0, c.typing_max_width);
+            return;
+        }
+    }
+    TEST_FAIL_MESSAGE("typing-max-width field not found");
+}
+
 /* ------------------------------------------------------------------ */
 
 int run_tui_tests(void)
@@ -352,5 +372,6 @@ int run_tui_tests(void)
     RUN_TEST(test_reset_field_bool);
     RUN_TEST(test_reset_field_string);
     RUN_TEST(test_bool_field_has_no_string_target);
+    RUN_TEST(test_typing_max_width_accepts_unlimited);
     return UnityEnd();
 }

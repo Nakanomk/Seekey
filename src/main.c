@@ -1,9 +1,12 @@
 #include "seekey.h"
 #include "config.h"
+#include "gui.h"
+#include "style.h"
 #include "tui.h"
 #include "window_state.h"
 
 #include <cairo.h>
+#include <linux/input-event-codes.h>
 #include <locale.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +46,30 @@ typedef struct {
     GtkWidget *widget;
     gboolean fade_phase;
 } TypingTimeout;
+
+static char *resolve_locale_dir(void)
+{
+    char *executable = g_file_read_link("/proc/self/exe", NULL);
+    if (executable == NULL) return g_strdup(LOCALEDIR);
+
+    char *bindir = g_path_get_dirname(executable);
+    char *development = g_build_filename(bindir, "locale", NULL);
+    if (g_file_test(development, G_FILE_TEST_IS_DIR)) {
+        g_free(bindir);
+        g_free(executable);
+        return development;
+    }
+    g_free(development);
+
+    char *prefix = g_path_get_dirname(bindir);
+    char *installed = g_build_filename(prefix, "share", "locale", NULL);
+    g_free(prefix);
+    g_free(bindir);
+    g_free(executable);
+    if (g_file_test(installed, G_FILE_TEST_IS_DIR)) return installed;
+    g_free(installed);
+    return g_strdup(LOCALEDIR);
+}
 
 static void cancel_active_typing_remove_timeout(AppState *state);
 static void cancel_active_typing_idle_timeout(AppState *state);
@@ -269,6 +296,23 @@ static void remove_placeholder(AppState *state)
     state->placeholder = NULL;
 }
 
+static void populate_preview_bubbles(AppState *state)
+{
+    const char *arrow = seekey_key_icon(KEY_UP, &state->config);
+    const char *samples[] = {"Ctrl + K", "seekey", arrow != NULL ? arrow : "Up"};
+
+    remove_placeholder(state);
+    for (gsize i = 0;
+         i < G_N_ELEMENTS(samples) && i < state->config.max_items;
+         i++) {
+        GtkWidget *label = gtk_label_new(samples[i]);
+        gtk_label_set_single_line_mode(GTK_LABEL(label), TRUE);
+        gtk_widget_add_css_class(label, "key-bubble");
+        if (i == 1) gtk_widget_add_css_class(label, "typing-bubble");
+        gtk_box_append(GTK_BOX(state->box), label);
+    }
+}
+
 static guint schedule_bubble_timeout(AppState *state, GtkWidget *widget, guint id)
 {
     Bubble *bubble = g_new0(Bubble, 1);
@@ -422,6 +466,9 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
             trim_bubbles(state);
         }
 
+        if (state->typing_text == NULL) {
+            state->typing_text = g_string_new(NULL);
+        }
         g_string_append(state->typing_text, typed);
         gtk_label_set_text(GTK_LABEL(state->typing_label), state->typing_text->str);
 
@@ -464,63 +511,6 @@ static void on_window_mapped(GtkWidget *widget, gpointer user_data)
     gdk_surface_set_input_region(surface, empty);
     cairo_region_destroy(empty);
     g_print(_("seekey: input region set to empty (click-through enabled)\n"));
-}
-
-static void install_css(const SeekeyConfig *config)
-{
-    char *css = g_strdup_printf(
-        "window { background: transparent; }"
-        ".overlay-root {"
-        "  padding: %upx;"
-        "  background: transparent;"
-        "}"
-        ".key-bubble {"
-        "  padding: %upx %upx;"
-        "  border-radius: %upx;"
-        "  color: %s;"
-        "  background: %s;"
-        "  border: %upx solid %s;"
-        "  box-shadow: %s;"
-        "  font-size: %upx;"
-        "  font-weight: %u;"
-        "  opacity: 1;"
-        "  transition: opacity %ums ease-out;"
-        "}"
-        /* Note: max-width is not a GTK CSS property. The typing bubble
-         * relies on the C-side `gtk_label_set_ellipsize(PANGO_ELLIPSIZE_END)`
-         * plus `gtk_label_set_max_width_chars()` for long-text truncation;
-         * style.typing-max-width controls the latter (in characters, not px). */
-        ".placeholder-bubble {"
-        "  color: %s;"
-        "  background: %s;"
-        "  border-color: %s;"
-        "}"
-        ".fading {"
-        "  opacity: 0;"
-        "}",
-        config->overlay_padding,
-        config->key_padding_y,
-        config->key_padding_x,
-        config->key_radius,
-        config->foreground,
-        config->background,
-        config->key_border_width,
-        config->border_color,
-        config->shadow,
-        config->key_font_px,
-        config->key_font_weight,
-        config->fade_ms,
-        config->placeholder_foreground,
-        config->placeholder_background,
-        config->placeholder_border_color);
-
-    GtkCssProvider *provider = gtk_css_provider_new();
-    gtk_css_provider_load_from_string(provider, css);
-    g_free(css);
-    gtk_style_context_add_provider_for_display(gdk_display_get_default(),
-                                               GTK_STYLE_PROVIDER(provider),
-                                               GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    g_object_unref(provider);
 }
 
 static GtkAlign configured_halign(const SeekeyConfig *config)
@@ -586,15 +576,22 @@ static void detect_compositor(void)
 static void activate(GtkApplication *app, gpointer user_data)
 {
     AppState *state = user_data;
+    if (state->window != NULL) {
+        gtk_window_present(GTK_WINDOW(state->window));
+        return;
+    }
     state->app = app;
 
     detect_compositor();
 
-    install_css(&state->config);
+    seekey_style_install(&state->config);
 
     GtkWidget *window = gtk_application_window_new(app);
     state->window = window;
+    g_object_add_weak_pointer(G_OBJECT(window),
+                              (gpointer *)&state->window);
     gtk_window_set_title(GTK_WINDOW(window), "Seekey");
+    gtk_widget_add_css_class(window, "seekey-overlay");
     /* The GApplication ID "dev.seekey" (set below) becomes the
      * Wayland `app_id` and the X11 `WM_CLASS` (dots → underscores:
      * `dev_seekey`). KWin / Hyprland window rules and GNOME extensions
@@ -618,6 +615,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_add_css_class(state->placeholder, "key-bubble");
     gtk_widget_add_css_class(state->placeholder, "placeholder-bubble");
     gtk_box_append(GTK_BOX(state->box), state->placeholder);
+    if (state->config.preview_child) populate_preview_bubbles(state);
 
     /* Resolve monitor from saved state (if any). NULL = let the
      * compositor / layer-shell choose. */
@@ -658,7 +656,7 @@ static void activate(GtkApplication *app, gpointer user_data)
      * layer-shell surfaces are anchored at startup and do not move at
      * runtime, so recording the monitor here is sufficient — no need to
      * wait for shutdown (which may not fire on SIGKILL / SIGHUP). */
-    {
+    if (!state->config.preview_child) {
         GtkNative *native = gtk_widget_get_native(window);
         GdkSurface *surface = native != NULL ? gtk_native_get_surface(native) : NULL;
         if (surface != NULL) {
@@ -668,7 +666,7 @@ static void activate(GtkApplication *app, gpointer user_data)
                 const char *connector = gdk_monitor_get_connector(m);
                 if (connector != NULL && connector[0] != '\0') {
                     SeekeyWindowState s;
-                    memset(&s, 0, sizeof(s));
+                    seekey_window_state_load(&s, NULL);
                     g_strlcpy(s.monitor, connector, sizeof(s.monitor));
                     seekey_window_state_save(&s, NULL);
                 }
@@ -689,14 +687,19 @@ static void activate(GtkApplication *app, gpointer user_data)
      * no-op on some compositors. */
     g_signal_connect(window, "map", G_CALLBACK(on_window_mapped), NULL);
 
-    GError *input_error = NULL;
-    state->input = seekey_input_new(&state->config, on_key_event, state, &input_error);
-    if (state->input == NULL) {
-        g_printerr(_("seekey: %s\n"), input_error->message);
-        g_printerr(_("seekey: grant read access to /dev/input/event* or run a quick test as root.\n"));
-        g_clear_error(&input_error);
-    } else {
-        seekey_input_start(state->input);
+    if (!state->config.preview_child) {
+        GError *input_error = NULL;
+        state->input =
+            seekey_input_new(&state->config, on_key_event, state, &input_error);
+        if (state->input == NULL) {
+            g_printerr(_("seekey: %s\n"), input_error->message);
+            if (!g_error_matches(input_error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
+                g_printerr(_("seekey: grant read access to /dev/input/event* or run a quick test as root.\n"));
+            }
+            g_clear_error(&input_error);
+        } else {
+            seekey_input_start(state->input);
+        }
     }
 
     gtk_window_present(GTK_WINDOW(window));
@@ -710,7 +713,7 @@ static void shutdown_app(GApplication *app, gpointer user_data)
      * restore it. Failure is silent — the state file is best-effort.
      * Note: we also save in activate() so even hard-killed processes
      * leave a state file. */
-    if (state->window != NULL) {
+    if (!state->config.preview_child && state->window != NULL) {
         GtkNative *native = gtk_widget_get_native(state->window);
         GdkSurface *surface = native != NULL ? gtk_native_get_surface(native) : NULL;
         if (surface != NULL) {
@@ -721,7 +724,7 @@ static void shutdown_app(GApplication *app, gpointer user_data)
                 const char *connector = gdk_monitor_get_connector(monitor);
                 if (connector != NULL && connector[0] != '\0') {
                     SeekeyWindowState wstate;
-                    memset(&wstate, 0, sizeof(wstate));
+                    seekey_window_state_load(&wstate, NULL);
                     g_strlcpy(wstate.monitor, connector,
                               sizeof(wstate.monitor));
                     seekey_window_state_save(&wstate, NULL);
@@ -743,9 +746,17 @@ int main(int argc, char **argv)
 
     /* Bind gettext domain. Falls back to source strings if no .mo is
      * installed (or if the user's locale has no translation). */
-    bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
+    char *locale_dir = resolve_locale_dir();
+    bindtextdomain(GETTEXT_PACKAGE, locale_dir);
+    g_free(locale_dir);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
     textdomain(GETTEXT_PACKAGE);
+
+    /* Informational commands must work even when the discovered user config
+     * is absent or malformed. */
+    if (seekey_cli_handle_info(argc, argv)) {
+        return 0;
+    }
 
     AppState state = {0};
     seekey_config_set_defaults(&state.config);
@@ -755,6 +766,7 @@ int main(int argc, char **argv)
     if (seekey_cli_has_flag(argc, argv, "--xdg")) {
         state.config.xdg_config = TRUE;
     }
+    seekey_cli_extract_matugen_path(&state.config, argc, argv);
 
     GError *error = NULL;
     if (!seekey_config_resolve_path(&state.config, argc, argv, &error)) {
@@ -767,9 +779,7 @@ int main(int argc, char **argv)
      * none was found. */
     if (seekey_cli_has_flag(argc, argv, "--init-config") &&
         state.config.config_path[0] == '\0') {
-        char *cwd = g_get_current_dir();
-        char *p = g_build_filename(cwd, "seekey.ini", NULL);
-        g_free(cwd);
+        char *p = seekey_default_save_path();
         g_strlcpy(state.config.config_path, p, sizeof(state.config.config_path));
         g_free(p);
     }
@@ -784,6 +794,18 @@ int main(int argc, char **argv)
         g_printerr("seekey: %s\n", error->message);
         g_clear_error(&error);
         return 2;
+    }
+
+    gboolean first_desktop_launch = FALSE;
+    if (state.config.desktop_launch) {
+        SeekeyWindowState desktop_state;
+        seekey_window_state_load(&desktop_state, NULL);
+        if (!desktop_state.desktop_preference_set) {
+            first_desktop_launch = TRUE;
+            state.config.config_gui = TRUE;
+        } else if (desktop_state.desktop_show_menu) {
+            state.config.config_gui = TRUE;
+        }
     }
 
     if (state.config.init_config) {
@@ -824,8 +846,20 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    GtkApplication *app = gtk_application_new("dev.seekey",
-                                              G_APPLICATION_DEFAULT_FLAGS);
+    if (state.config.config_gui) {
+        if (!seekey_config_gui_run(&state.config, first_desktop_launch,
+                                   &error)) {
+            g_printerr(_("seekey: %s\n"), error->message);
+            g_clear_error(&error);
+            return 2;
+        }
+        return 0;
+    }
+
+    GtkApplication *app = gtk_application_new(
+        state.config.preview_child ? NULL : "dev.seekey",
+        state.config.preview_child ? G_APPLICATION_NON_UNIQUE
+                                   : G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), &state);
     g_signal_connect(app, "shutdown", G_CALLBACK(shutdown_app), &state);
 

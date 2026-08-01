@@ -59,6 +59,16 @@ gboolean seekey_window_state_load(SeekeyWindowState *out, GError **error)
         g_strlcpy(out->monitor, monitor, sizeof(out->monitor));
         g_free(monitor);
     }
+    if (g_key_file_has_key(kf, "desktop", "show-menu", NULL)) {
+        GError *pref_error = NULL;
+        gboolean value =
+            g_key_file_get_boolean(kf, "desktop", "show-menu", &pref_error);
+        if (pref_error == NULL) {
+            out->desktop_preference_set = TRUE;
+            out->desktop_show_menu = value;
+        }
+        g_clear_error(&pref_error);
+    }
 
     g_key_file_unref(kf);
     return TRUE;
@@ -87,6 +97,10 @@ gboolean seekey_window_state_save(const SeekeyWindowState *state, GError **error
     if (state->monitor[0] != '\0') {
         g_key_file_set_string(kf, "window", "monitor", state->monitor);
     }
+    if (state->desktop_preference_set) {
+        g_key_file_set_boolean(kf, "desktop", "show-menu",
+                               state->desktop_show_menu);
+    }
     gsize length = 0;
     char *data = g_key_file_to_data(kf, &length, NULL);
     g_key_file_unref(kf);
@@ -108,6 +122,18 @@ void seekey_window_state_clear(void)
         g_unlink(path);
     }
     g_free(path);
+}
+
+void seekey_window_state_clear_monitor(void)
+{
+    SeekeyWindowState state;
+    seekey_window_state_load(&state, NULL);
+    state.monitor[0] = '\0';
+    if (state.desktop_preference_set) {
+        seekey_window_state_save(&state, NULL);
+    } else {
+        seekey_window_state_clear();
+    }
 }
 
 GdkMonitor *seekey_find_monitor_by_name(GdkDisplay *display, const char *name)

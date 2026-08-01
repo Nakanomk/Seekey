@@ -14,7 +14,7 @@ breaking your flow.
 ![Language: C](https://img.shields.io/badge/Language-C-00599C.svg)
 ![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%2F%20Wayland-FCC624.svg)
 ![GTK4](https://img.shields.io/badge/GTK-4-7FE7FE.svg)
-![Version](https://img.shields.io/badge/version-0.2.0-44cc11.svg)
+![Version](https://img.shields.io/badge/version-0.2.1-44cc11.svg)
 
 **[English](README.md)** · **[简体中文](README.zh-CN.md)** · **[📖 Wiki](https://github.com/Nakanomk/Seekey/wiki)**
 
@@ -52,6 +52,7 @@ yay -S seekey-git         # install main branch version
 ```sh
 make                       # build
 ./seekey --init-config     # drop a starter ./seekey.ini (optional)
+./seekey --config-gui      # open the graphical settings menu
 ./seekey --config-tui      # tweak settings in a terminal UI (optional)
 ./seekey                   # run
 ```
@@ -75,7 +76,8 @@ Press some keys — bubbles appear at the bottom of the screen. That's it.
 | 🖱️ **Click-through** | Clicks pass straight through to whatever is underneath. Keyboard focus is never stolen. |
 | 🎨 **Looks nice out of the box** | Six built-in themes (default, nord, dracula, catppuccin, monokai, light) + custom colors + custom key icons. |
 | 🖼️ **Matugen-aware** | Reference `@matugen:<role>` in the config and colors follow your wallpaper. |
-| ⌨️ **TUI config editor** | Browse / change / save every setting from the terminal — no need to hand-edit ini files. |
+| ⚙️ **Launcher-style GUI** | A compact searchable menu modeled on fuzzel's layout, with a live style preview. |
+| ⌨️ **TUI config editor** | Browse / change / save every setting while the key overlay previews unsaved changes. |
 
 ---
 
@@ -89,6 +91,15 @@ build deps, builds, installs to `~/.local/bin`, and sets up input permissions:
 ./install.sh --system       # system install to /usr/local (sudo)
 ./install.sh --uninstall    # reverse it
 ```
+
+Installation also adds a Seekey desktop entry. On its first launch, choose
+whether future application-menu launches open the settings menu or start the
+key overlay directly. `seekey --config-gui` always opens settings.
+
+The menu reads layout and colors from `~/.config/fuzzel/fuzzel.ini` when
+available, including Matugen colors written into that file. Fuzzel itself is
+not required. Missing or malformed fuzzel configuration falls back to safe
+built-in defaults.
 
 Prefer building manually? See
 [Build from source](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)
@@ -107,6 +118,7 @@ The README stays short on purpose. Everything else lives in the
 - [Build from Source](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source) — manual build, dependencies per distro, Makefile targets
 - [Configuration](https://github.com/Nakanomk/Seekey/wiki/Configuration) — the config file, lookup order, common settings
 - [Configuration Reference](https://github.com/Nakanomk/Seekey/wiki/Configuration-Reference) — every key, its type, range, and default
+- [GUI Editor](https://github.com/Nakanomk/Seekey/wiki/GUI-Editor) — graphical menu and desktop-launch behavior
 - [TUI Editor](https://github.com/Nakanomk/Seekey/wiki/TUI-Editor) — keybindings for `--config-tui`
 
 **Behaviour & compatibility**

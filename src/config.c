@@ -102,6 +102,8 @@ void seekey_config_set_defaults(SeekeyConfig *config) {
   g_strlcpy(config->disappear, "fade", sizeof(config->disappear));
   g_strlcpy(config->layer_shell, "auto", sizeof(config->layer_shell));
   g_strlcpy(config->theme, "default", sizeof(config->theme));
+  g_strlcpy(config->key_font_family, "inherit",
+            sizeof(config->key_font_family));
   config->icon_override_count = 0;
   g_strlcpy(config->foreground, "#f7f7f2", sizeof(config->foreground));
   g_strlcpy(config->background, "alpha(#111318, 0.86)",
@@ -164,8 +166,10 @@ char *seekey_matugen_resolve_path(int argc, char **argv) {
   if (cache != NULL && cache[0] != '\0') {
     return g_build_filename(cache, "matugen", "colors.json", NULL);
   }
-  return g_build_filename(g_get_home_dir(), ".cache", "matugen", "colors.json",
-                          NULL);
+  const char *home = g_get_home_dir();
+  return home != NULL
+             ? g_build_filename(home, ".cache", "matugen", "colors.json", NULL)
+             : NULL;
 }
 
 GHashTable *seekey_matugen_load(const char *path, GError **error) {
@@ -219,7 +223,8 @@ GHashTable *seekey_matugen_load(const char *path, GError **error) {
   JsonNode *value_node;
   json_object_iter_init(&iter, colors_obj);
   while (json_object_iter_next(&iter, &role, &value_node)) {
-    if (!JSON_NODE_HOLDS_VALUE(value_node))
+    if (!JSON_NODE_HOLDS_VALUE(value_node) ||
+        json_node_get_value_type(value_node) != G_TYPE_STRING)
       continue;
     const char *hex = json_node_get_string(value_node);
     if (hex == NULL)
@@ -266,7 +271,7 @@ char *seekey_matugen_resolve_value(const char *value, GHashTable *colors) {
   /* Trailing @<alpha> → wrap in alpha(...). */
   char *end = NULL;
   double alpha = g_ascii_strtod(at + 1, &end);
-  if (end == at + 1 || alpha < 0.0 || alpha > 1.0) {
+  if (end == at + 1 || *end != '\0' || alpha < 0.0 || alpha > 1.0) {
     return g_strdup(hex);
   }
   return g_strdup_printf("alpha(%s, %g)", hex, alpha);
@@ -277,6 +282,17 @@ void seekey_cli_extract_config_path(SeekeyConfig *config, int argc,
   for (int i = 1; i < argc; i++) {
     if (g_strcmp0(argv[i], "--config") == 0 && i + 1 < argc) {
       g_strlcpy(config->config_path, argv[i + 1], sizeof(config->config_path));
+      return;
+    }
+  }
+}
+
+void seekey_cli_extract_matugen_path(SeekeyConfig *config, int argc,
+                                     char **argv) {
+  for (int i = 1; i < argc; i++) {
+    if (g_strcmp0(argv[i], "--matugen") == 0 && i + 1 < argc) {
+      g_strlcpy(config->matugen_path, argv[i + 1],
+                sizeof(config->matugen_path));
       return;
     }
   }
@@ -331,6 +347,35 @@ static gboolean valid_choice(const char *value, const char *a, const char *b,
                              const char *c) {
   return g_strcmp0(value, a) == 0 || g_strcmp0(value, b) == 0 ||
          (c != NULL && g_strcmp0(value, c) == 0);
+}
+
+static void replace_unresolved_matugen_values(SeekeyConfig *config) {
+  SeekeyConfig fallback;
+  seekey_config_set_defaults(&fallback);
+  seekey_config_apply_theme(&fallback, config->theme);
+  struct {
+    char *target;
+    gsize size;
+    const char *fallback;
+  } fields[] = {
+      {config->foreground, sizeof(config->foreground), fallback.foreground},
+      {config->background, sizeof(config->background), fallback.background},
+      {config->border_color, sizeof(config->border_color),
+       fallback.border_color},
+      {config->shadow, sizeof(config->shadow), fallback.shadow},
+      {config->placeholder_foreground,
+       sizeof(config->placeholder_foreground), fallback.placeholder_foreground},
+      {config->placeholder_background,
+       sizeof(config->placeholder_background), fallback.placeholder_background},
+      {config->placeholder_border_color,
+       sizeof(config->placeholder_border_color),
+       fallback.placeholder_border_color},
+  };
+  for (gsize i = 0; i < G_N_ELEMENTS(fields); i++) {
+    if (g_str_has_prefix(fields[i].target, "@matugen:")) {
+      g_strlcpy(fields[i].target, fields[i].fallback, fields[i].size);
+    }
+  }
 }
 
 static gboolean parse_uint_arg(const char *name, const char *value, guint min,
@@ -395,6 +440,19 @@ static void keyfile_get_uint_range(GKeyFile *key_file, const char *group,
   *target = value;
 }
 
+static void keyfile_get_boolean_value(GKeyFile *key_file, const char *group,
+                                      const char *key, gboolean *target,
+                                      GError **error) {
+  if (*error != NULL || !g_key_file_has_key(key_file, group, key, NULL)) {
+    return;
+  }
+
+  gboolean value = g_key_file_get_boolean(key_file, group, key, error);
+  if (*error == NULL) {
+    *target = value;
+  }
+}
+
 static void keyfile_get_string_value(GKeyFile *key_file, const char *group,
                                      const char *key, char *target,
                                      gsize target_size, GError **error) {
@@ -404,12 +462,18 @@ static void keyfile_get_string_value(GKeyFile *key_file, const char *group,
 
   char *value = g_key_file_get_string(key_file, group, key, error);
   if (*error == NULL) {
-    g_strlcpy(target, value, target_size);
+    if (strlen(value) >= target_size) {
+      g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                  "[%s] %s is too long (maximum %zu bytes)", group, key,
+                  target_size - 1);
+    } else {
+      g_strlcpy(target, value, target_size);
+    }
   }
   g_free(value);
 }
 
-gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
+static gboolean seekey_config_load_impl(SeekeyConfig *config, GError **error) {
   if (config->config_path[0] == '\0' ||
       !g_file_test(config->config_path, G_FILE_TEST_EXISTS)) {
     return TRUE;
@@ -428,29 +492,20 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
     keyfile_get_string_value(key_file, "general", "theme", theme_name,
                              sizeof(theme_name), error);
     if (*error == NULL && theme_name[0] != '\0') {
-      seekey_config_apply_theme(config, theme_name);
+      if (!seekey_config_apply_theme(config, theme_name)) {
+        g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                    "[general] unknown theme: %s", theme_name);
+      }
       g_strlcpy(config->theme, theme_name, sizeof(config->theme));
-    } else {
-      g_clear_error(error);
     }
   }
 
-  {
-    gboolean val;
-    if (g_key_file_has_key(key_file, "general", "merge-repeats", NULL)) {
-      val = g_key_file_get_boolean(key_file, "general", "merge-repeats", NULL);
-      config->merge_repeats = val;
-    }
-    if (g_key_file_has_key(key_file, "general", "merge-modifiers", NULL)) {
-      val =
-          g_key_file_get_boolean(key_file, "general", "merge-modifiers", NULL);
-      config->merge_modifiers = val;
-    }
-    if (g_key_file_has_key(key_file, "general", "show-mouse", NULL)) {
-      val = g_key_file_get_boolean(key_file, "general", "show-mouse", NULL);
-      config->show_mouse = val;
-    }
-  }
+  keyfile_get_boolean_value(key_file, "general", "merge-repeats",
+                            &config->merge_repeats, error);
+  keyfile_get_boolean_value(key_file, "general", "merge-modifiers",
+                            &config->merge_modifiers, error);
+  keyfile_get_boolean_value(key_file, "general", "show-mouse",
+                            &config->show_mouse, error);
 
   keyfile_get_uint_range(key_file, "general", "duration-ms", 100, 10000,
                          &config->duration_ms, error);
@@ -464,10 +519,21 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
                          &config->margin_horizontal_px, error);
   keyfile_get_uint_range(key_file, "general", "max-items", 1, 20,
                          &config->max_items, error);
-  keyfile_get_uint_range(key_file, "general", "window-width", 240, 3000,
-                         &config->window_width, error);
-  keyfile_get_uint_range(key_file, "general", "window-height", 80, 1000,
-                         &config->window_height, error);
+  /* Versions through 0.2.0 documented these two keys under [style], while
+   * the loader and saver used [general]. Prefer the canonical location but
+   * continue to accept those existing configuration files. */
+  const char *window_width_group =
+      g_key_file_has_key(key_file, "general", "window-width", NULL)
+          ? "general"
+          : "style";
+  const char *window_height_group =
+      g_key_file_has_key(key_file, "general", "window-height", NULL)
+          ? "general"
+          : "style";
+  keyfile_get_uint_range(key_file, window_width_group, "window-width", 240,
+                         3000, &config->window_width, error);
+  keyfile_get_uint_range(key_file, window_height_group, "window-height", 80,
+                         1000, &config->window_height, error);
   keyfile_get_string_value(key_file, "general", "layer-shell",
                            config->layer_shell, sizeof(config->layer_shell),
                            error);
@@ -490,8 +556,11 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
                          &config->key_font_px, error);
   keyfile_get_uint_range(key_file, "style", "key-font-weight", 100, 1000,
                          &config->key_font_weight, error);
-  keyfile_get_uint_range(key_file, "style", "typing-max-width", 80, 2000,
+  keyfile_get_uint_range(key_file, "style", "typing-max-width", 0, 2000,
                          &config->typing_max_width, error);
+  keyfile_get_string_value(key_file, "style", "font-family",
+                           config->key_font_family,
+                           sizeof(config->key_font_family), error);
 
   keyfile_get_string_value(key_file, "style", "align", config->align,
                            sizeof(config->align), error);
@@ -524,17 +593,33 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
     gsize icon_count = 0;
     char **icon_keys =
         g_key_file_get_keys(key_file, "icons", &icon_count, NULL);
-    for (gsize i = 0; i < icon_count &&
-                      config->icon_override_count < SEEKEY_MAX_ICON_OVERRIDES;
-         i++) {
+    if (icon_count > SEEKEY_MAX_ICON_OVERRIDES) {
+      g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                  "[icons] has %zu entries; maximum is %u", icon_count,
+                  SEEKEY_MAX_ICON_OVERRIDES);
+    }
+    for (gsize i = 0; *error == NULL && i < icon_count; i++) {
       char *value =
           g_key_file_get_string(key_file, "icons", icon_keys[i], NULL);
       if (value != NULL) {
-        g_strlcpy(config->icon_overrides[config->icon_override_count].name,
-                  icon_keys[i], sizeof(config->icon_overrides[0].name));
-        g_strlcpy(config->icon_overrides[config->icon_override_count].icon,
-                  value, sizeof(config->icon_overrides[0].icon));
-        config->icon_override_count++;
+        gsize value_len = strlen(value);
+        if (value_len >= 2 &&
+            ((value[0] == '"' && value[value_len - 1] == '"') ||
+             (value[0] == '\'' && value[value_len - 1] == '\''))) {
+          value[value_len - 1] = '\0';
+          memmove(value, value + 1, value_len - 1);
+        }
+        if (strlen(icon_keys[i]) >= sizeof(config->icon_overrides[0].name) ||
+            strlen(value) >= sizeof(config->icon_overrides[0].icon)) {
+          g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                      "[icons] entry '%s' is too long", icon_keys[i]);
+        } else {
+          g_strlcpy(config->icon_overrides[config->icon_override_count].name,
+                    icon_keys[i], sizeof(config->icon_overrides[0].name));
+          g_strlcpy(config->icon_overrides[config->icon_override_count].icon,
+                    value, sizeof(config->icon_overrides[0].icon));
+          config->icon_override_count++;
+        }
         g_free(value);
       }
     }
@@ -555,6 +640,14 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
     } else {
       mpath = seekey_matugen_resolve_path(0, NULL);
     }
+    gboolean explicit_path = config->matugen_path[0] != '\0';
+    if (explicit_path &&
+        (mpath == NULL || !g_file_test(mpath, G_FILE_TEST_EXISTS))) {
+      g_set_error(error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                  "matugen file not found: %s", mpath != NULL ? mpath : "");
+      g_free(mpath);
+      return FALSE;
+    }
     if (mpath != NULL && g_file_test(mpath, G_FILE_TEST_EXISTS)) {
       GError *merr = NULL;
       GHashTable *colors = seekey_matugen_load(mpath, &merr);
@@ -563,15 +656,10 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
           char *target;
           gsize size;
         } strs[] = {
-            {config->align, sizeof(config->align)},
-            {config->disappear, sizeof(config->disappear)},
-            {config->layer_shell, sizeof(config->layer_shell)},
-            {config->theme, sizeof(config->theme)},
             {config->foreground, sizeof(config->foreground)},
             {config->background, sizeof(config->background)},
             {config->border_color, sizeof(config->border_color)},
             {config->shadow, sizeof(config->shadow)},
-            {config->placeholder_text, sizeof(config->placeholder_text)},
             {config->placeholder_foreground,
              sizeof(config->placeholder_foreground)},
             {config->placeholder_background,
@@ -586,6 +674,11 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
         }
         g_hash_table_destroy(colors);
       } else {
+        if (explicit_path) {
+          g_propagate_error(error, merr);
+          g_free(mpath);
+          return FALSE;
+        }
         g_printerr("seekey: matugen load failed: %s\n",
                    merr ? merr->message : "(unknown)");
         g_clear_error(&merr);
@@ -593,6 +686,7 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
     }
     g_free(mpath);
   }
+  replace_unresolved_matugen_values(config);
   if (!valid_choice(config->align, "left", "center", "right")) {
     g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
                 "[style] align must be one of: left, center, right");
@@ -608,7 +702,36 @@ gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
                 "[general] layer-shell must be one of: auto, required, off");
     return FALSE;
   }
+  if (config->key_font_family[0] == '\0') {
+    g_set_error_literal(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                        "[style] font-family cannot be empty");
+    return FALSE;
+  }
 
+  return TRUE;
+}
+
+gboolean seekey_config_load(SeekeyConfig *config, GError **error) {
+  GError *local_error = NULL;
+  gboolean ok = seekey_config_load_impl(
+      config, error != NULL ? error : &local_error);
+  g_clear_error(&local_error);
+  return ok;
+}
+
+gboolean seekey_config_reload(SeekeyConfig *config, GError **error) {
+  SeekeyConfig reloaded;
+  seekey_config_set_defaults(&reloaded);
+  g_strlcpy(reloaded.config_path, config->config_path,
+            sizeof(reloaded.config_path));
+  g_strlcpy(reloaded.matugen_path, config->matugen_path,
+            sizeof(reloaded.matugen_path));
+
+  if (!seekey_config_load(&reloaded, error)) {
+    return FALSE;
+  }
+
+  *config = reloaded;
   return TRUE;
 }
 
@@ -658,6 +781,8 @@ static void keyfile_set_config(GKeyFile *key_file, const SeekeyConfig *config) {
                          (int)config->key_font_weight);
   g_key_file_set_integer(key_file, "style", "typing-max-width",
                          (int)config->typing_max_width);
+  g_key_file_set_string(key_file, "style", "font-family",
+                        config->key_font_family);
   g_key_file_set_string(key_file, "style", "foreground", config->foreground);
   g_key_file_set_string(key_file, "style", "background", config->background);
   g_key_file_set_string(key_file, "style", "border-color",
@@ -679,6 +804,62 @@ static void keyfile_set_config(GKeyFile *key_file, const SeekeyConfig *config) {
   }
 }
 
+static void keyfile_restore_matugen_references(GKeyFile *key_file,
+                                               const SeekeyConfig *config,
+                                               char **raw_values) {
+  static const char *keys[] = {
+      "foreground", "background", "border-color", "shadow",
+      "placeholder-foreground", "placeholder-background",
+      "placeholder-border-color",
+  };
+  const char *current[] = {
+      config->foreground, config->background, config->border_color,
+      config->shadow, config->placeholder_foreground,
+      config->placeholder_background, config->placeholder_border_color,
+  };
+  SeekeyConfig fallback;
+  seekey_config_set_defaults(&fallback);
+  seekey_config_apply_theme(&fallback, config->theme);
+  const char *fallback_values[] = {
+      fallback.foreground, fallback.background, fallback.border_color,
+      fallback.shadow, fallback.placeholder_foreground,
+      fallback.placeholder_background, fallback.placeholder_border_color,
+  };
+
+  gboolean needs_colors = FALSE;
+  for (gsize i = 0; i < G_N_ELEMENTS(keys); i++) {
+    if (raw_values[i] != NULL &&
+        g_str_has_prefix(raw_values[i], "@matugen:")) {
+      needs_colors = TRUE;
+      break;
+    }
+  }
+  if (!needs_colors) return;
+
+  char *path = config->matugen_path[0] != '\0'
+                   ? g_strdup(config->matugen_path)
+                   : seekey_matugen_resolve_path(0, NULL);
+  GHashTable *colors = NULL;
+  if (path != NULL && g_file_test(path, G_FILE_TEST_EXISTS)) {
+    colors = seekey_matugen_load(path, NULL);
+  }
+
+  for (gsize i = 0; i < G_N_ELEMENTS(keys); i++) {
+    const char *raw = raw_values[i];
+    if (raw == NULL || !g_str_has_prefix(raw, "@matugen:")) continue;
+    char *resolved = seekey_matugen_resolve_value(raw, colors);
+    if (g_strcmp0(current[i], raw) == 0 ||
+        g_strcmp0(current[i], resolved) == 0 ||
+        g_strcmp0(current[i], fallback_values[i]) == 0) {
+      g_key_file_set_string(key_file, "style", keys[i], raw);
+    }
+    g_free(resolved);
+  }
+
+  g_clear_pointer(&colors, g_hash_table_destroy);
+  g_free(path);
+}
+
 gboolean seekey_config_save(const SeekeyConfig *config, GError **error) {
   if (config->config_path[0] == '\0') {
     g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED,
@@ -686,8 +867,30 @@ gboolean seekey_config_save(const SeekeyConfig *config, GError **error) {
     return FALSE;
   }
 
+  static const char *matugen_keys[] = {
+      "foreground", "background", "border-color", "shadow",
+      "placeholder-foreground", "placeholder-background",
+      "placeholder-border-color",
+  };
+  char *raw_matugen[G_N_ELEMENTS(matugen_keys)] = {0};
   GKeyFile *key_file = g_key_file_new();
+  if (g_file_test(config->config_path, G_FILE_TEST_EXISTS) &&
+      !g_key_file_load_from_file(key_file, config->config_path,
+                                 G_KEY_FILE_KEEP_COMMENTS |
+                                     G_KEY_FILE_KEEP_TRANSLATIONS,
+                                 error)) {
+    g_key_file_unref(key_file);
+    return FALSE;
+  }
+  for (gsize i = 0; i < G_N_ELEMENTS(matugen_keys); i++) {
+    raw_matugen[i] = g_key_file_get_string(key_file, "style",
+                                           matugen_keys[i], NULL);
+  }
   keyfile_set_config(key_file, config);
+  keyfile_restore_matugen_references(key_file, config, raw_matugen);
+  for (gsize i = 0; i < G_N_ELEMENTS(raw_matugen); i++) {
+    g_free(raw_matugen[i]);
+  }
 
   gsize length = 0;
   char *data = g_key_file_to_data(key_file, &length, error);
@@ -741,7 +944,7 @@ gboolean seekey_config_print(const SeekeyConfig *config, GError **error) {
     return FALSE;
   }
 
-  const char *source = config->config_path[0] ? "project" : "default";
+  const char *source = config->config_path[0] ? "file" : "default";
   g_print("# source: %s\n# path: %s\n%s", source, config->config_path, data);
   g_free(data);
   return TRUE;
@@ -763,12 +966,81 @@ gboolean seekey_config_validate(const SeekeyConfig *config, GError **error) {
                 "layer-shell must be one of: auto, required, off");
     return FALSE;
   }
+  if (config->key_font_family[0] == '\0') {
+    g_set_error_literal(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                        "font-family cannot be empty");
+    return FALSE;
+  }
   return TRUE;
 }
 
 /* ------------------------------------------------------------------ */
 /* Argument parsing                                                    */
 /* ------------------------------------------------------------------ */
+
+static void print_help(void) {
+  g_print(
+      "Usage: seekey [OPTIONS]\n\n"
+      "Options:\n"
+      "  --config PATH          Config file path (default: ./seekey.ini)\n"
+      "  --config-tui           Open terminal UI to edit and save "
+      "configuration\n"
+      "  --config-gui           Open graphical configuration menu\n"
+      "  --desktop-launch       Launch using the saved desktop-entry mode\n"
+      "  --init-config          Write the current default/config/CLI "
+      "settings to config\n"
+      "  --init-config --xdg    Write to ~/.config/seekey/config.ini "
+      "instead\n"
+      "  --matugen PATH         Path to a matugen colors.json (overrides "
+      "env/default)\n"
+      "  --force                Allow --init-config to overwrite an "
+      "existing config\n"
+      "  --print-config         Print the effective configuration and exit\n"
+      "  --validate-config      Validate configuration and exit\n"
+      "  --no-layer-shell       Disable gtk4-layer-shell even if available\n"
+      "  --layer-shell auto|required|off\n"
+      "  --theme NAME           Color preset: default, nord, dracula, "
+      "catppuccin, monokai, light\n"
+      "  --merge-repeats        Stack identical key bubbles as Key xN "
+      "(default on)\n"
+      "  --no-merge-repeats     Show each key press as a separate bubble\n"
+      "  --merge-modifiers      Update modifier bubble when combo extends "
+      "(default on)\n"
+      "  --no-merge-modifiers   Keep each modifier press as a separate "
+      "bubble\n"
+      "  --show-mouse           Show mouse clicks (default off)\n"
+      "  --no-mouse             Hide mouse clicks (default)\n"
+      "  --duration MS          Bubble duration, default 1200\n"
+      "  --typing-idle MS       Pause before typed text starts a new bubble, "
+      "default 650\n"
+      "  --fade-ms MS           Fade duration when disappear=fade, default "
+      "180\n"
+      "  --margin PX            Bottom margin in layer-shell mode, default 0\n"
+      "  --margin-horizontal PX Horizontal margin for left/right anchor, "
+      "default 0\n"
+      "  --max-items N          Maximum visible bubbles, default 5\n"
+      "  --align left|center|right\n"
+      "  --disappear instant|fade\n"
+      "  --debug-input          Print input discovery and events\n"
+      "  -V, --version          Print version and exit\n"
+      "  -h, --help             Show help\n");
+}
+
+gboolean seekey_cli_handle_info(int argc, char **argv) {
+  for (int i = 1; i < argc; i++) {
+    if (g_strcmp0(argv[i], "-V") == 0 ||
+        g_strcmp0(argv[i], "--version") == 0) {
+      g_print("seekey %s\n", SEEKEY_VERSION);
+      return TRUE;
+    }
+    if (g_strcmp0(argv[i], "-h") == 0 ||
+        g_strcmp0(argv[i], "--help") == 0) {
+      print_help();
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
 
 gboolean seekey_parse_args(SeekeyConfig *config, int *argc, char ***argv,
                            GError **error) {
@@ -781,6 +1053,12 @@ gboolean seekey_parse_args(SeekeyConfig *config, int *argc, char ***argv,
       config->debug_input = TRUE;
     } else if (g_strcmp0(arg, "--config-tui") == 0) {
       config->config_tui = TRUE;
+    } else if (g_strcmp0(arg, "--config-gui") == 0) {
+      config->config_gui = TRUE;
+    } else if (g_strcmp0(arg, "--preview-child") == 0) {
+      config->preview_child = TRUE;
+    } else if (g_strcmp0(arg, "--desktop-launch") == 0) {
+      config->desktop_launch = TRUE;
     } else if (g_strcmp0(arg, "--init-config") == 0) {
       config->init_config = TRUE;
     } else if (g_strcmp0(arg, "--force") == 0) {
@@ -867,7 +1145,7 @@ gboolean seekey_parse_args(SeekeyConfig *config, int *argc, char ***argv,
     } else if (g_strcmp0(arg, "--no-merge-modifiers") == 0) {
       config->merge_modifiers = FALSE;
     } else if (g_strcmp0(arg, "--show-mouse") == 0) {
-      config->show_mouse = FALSE;
+      config->show_mouse = TRUE;
     } else if (g_strcmp0(arg, "--no-mouse") == 0) {
       config->show_mouse = FALSE;
     } else if (g_strcmp0(arg, "--theme") == 0) {
@@ -877,57 +1155,16 @@ gboolean seekey_parse_args(SeekeyConfig *config, int *argc, char ***argv,
         return FALSE;
       }
       g_strlcpy(config->theme, (*argv)[i], sizeof(config->theme));
-      seekey_config_apply_theme(config, config->theme);
+      if (!seekey_config_apply_theme(config, config->theme)) {
+        g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                    "Unknown theme: %s", config->theme);
+        return FALSE;
+      }
     } else if (g_strcmp0(arg, "-V") == 0 || g_strcmp0(arg, "--version") == 0) {
       g_print("seekey %s\n", SEEKEY_VERSION);
       exit(0);
     } else if (g_strcmp0(arg, "-h") == 0 || g_strcmp0(arg, "--help") == 0) {
-      g_print(
-          "Usage: seekey [OPTIONS]\n\n"
-          "Options:\n"
-          "  --config PATH          Config file path (default: ./seekey.ini)\n"
-          "  --config-tui           Open terminal UI to edit and save "
-          "configuration\n"
-          "  --init-config          Write the current default/config/CLI "
-          "settings to config\n"
-          "  --init-config --xdg    Write to ~/.config/seekey/config.ini "
-          "instead\n"
-          "  --matugen PATH         Path to a matugen colors.json (overrides "
-          "env/default)\n"
-          "  --force                Allow --init-config to overwrite an "
-          "existing config\n"
-          "  --print-config         Print the effective configuration and "
-          "exit\n"
-          "  --validate-config      Validate configuration and exit\n"
-          "  --no-layer-shell       Disable gtk4-layer-shell even if "
-          "available\n"
-          "  --layer-shell auto|required|off\n"
-          "  --theme NAME           Color preset: default, nord, dracula, "
-          "catppuccin, monokai, light\n"
-          "  --merge-repeats        Stack identical key bubbles as Key xN "
-          "(default on)\n"
-          "  --no-merge-repeats     Show each key press as a separate bubble\n"
-          "  --merge-modifiers      Update modifier bubble when combo extends "
-          "(default on)\n"
-          "  --no-merge-modifiers   Keep each modifier press as a separate "
-          "bubble\n"
-          "  --show-mouse           Show mouse clicks (default off)\n"
-          "  --no-mouse             Hide mouse clicks (default)\n"
-          "  --duration MS          Bubble duration, default 1200\n"
-          "  --typing-idle MS       Pause before typed text starts a new "
-          "bubble, default 650\n"
-          "  --fade-ms MS           Fade duration when disappear=fade, default "
-          "180\n"
-          "  --margin PX            Bottom margin in layer-shell mode, default "
-          "96\n"
-          "  --margin-horizontal PX Horizontal margin for left/right anchor, "
-          "default 0\n"
-          "  --max-items N          Maximum visible bubbles, default 5\n"
-          "  --align left|center|right\n"
-          "  --disappear instant|fade\n"
-          "  --debug-input          Print input discovery and events\n"
-          "  -V, --version          Print version and exit\n"
-          "  -h, --help             Show help\n");
+      print_help();
       exit(0);
     } else {
       g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_UNKNOWN_OPTION,

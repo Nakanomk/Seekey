@@ -1,6 +1,7 @@
 #include "seekey.h"
 #include "tui.h"
 #include "config.h"
+#include "preview_session.h"
 #include "window_state.h"
 
 #include <locale.h>
@@ -371,8 +372,8 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
                "integer 0..80", key_radius, 0, 80, 1);
     UINT_FIELD(TUI_GROUP_LAYOUT, "key-border-width", "Bubble border width.",
                "integer 0..20", key_border_width, 0, 20, 1);
-    UINT_FIELD(TUI_GROUP_LAYOUT, "typing-max-width", "Max width for grouped typing bubbles (≈chars; triggers ellipsize).",
-               "integer 80..2000", typing_max_width, 80, 2000, 20);
+    UINT_FIELD(TUI_GROUP_LAYOUT, "typing-max-width", "Max width for grouped typing bubbles (0 = unlimited).",
+               "integer 0..2000", typing_max_width, 0, 2000, 20);
     UINT_FIELD(TUI_GROUP_LAYOUT, "window-width", "Fallback window width (non-layer-shell).",
                "integer 240..3000", window_width, 240, 3000, 20);
     UINT_FIELD(TUI_GROUP_LAYOUT, "window-height", "Fallback window height (non-layer-shell).",
@@ -383,6 +384,9 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
                "integer 8..96", key_font_px, 8, 96, 1);
     UINT_FIELD(TUI_GROUP_APPEARANCE, "key-font-weight", "Bubble font weight.",
                "integer 100..1000", key_font_weight, 100, 1000, 100);
+    STRING_FIELD(TUI_GROUP_APPEARANCE, "font-family", "Bubble font family.",
+                 "inherit, or a font family such as JetBrains Mono",
+                 config->key_font_family, sizeof(config->key_font_family));
 
     COLOR_FIELD(TUI_GROUP_APPEARANCE, "foreground", "Key-bubble text color.",
                  "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
@@ -602,6 +606,7 @@ static gboolean tui_choice_picker(TuiState *st, TuiField *field)
 {
     const char *const *choices = field->choices;
     guint count = field->choice_count;
+    if (choices == NULL || count == 0) return FALSE;
     int sel = (int)tui_current_choice_index(field);
     gboolean done = FALSE, picked = FALSE;
     while (!done) {
@@ -658,6 +663,7 @@ static gboolean tui_theme_picker(TuiState *st, SeekeyConfig *config)
     static const char *THEME_BG[]   = {"#111318","#fafafa","#5e81ac","#6272a4","#585b70","#75715e"};
     static const char *THEME_BD[]   = {"#ffffff","#cccccc","#88c0d0","#bd93f9","#cba6f7","#a6e22e"};
     gsize n = seekey_config_theme_count();
+    if (n == 0 || n > G_N_ELEMENTS(THEME_FG)) return FALSE;
     int sel = 0;
     for (gsize i = 0; i < n; i++) {
         if (g_strcmp0(config->theme, seekey_config_theme_at(i)->name) == 0) {
@@ -1050,8 +1056,7 @@ static void tui_reload(TuiState *st)
 {
     if (st->config->config_path[0] == '\0') return;
     GError *err = NULL;
-    seekey_config_set_defaults(st->config);
-    if (!seekey_config_load(st->config, &err)) {
+    if (!seekey_config_reload(st->config, &err)) {
         tui_set_status(st, "Reload failed: %s", err->message);
         g_clear_error(&err);
         return;
@@ -1076,6 +1081,14 @@ static void tui_reset_all(TuiState *st)
 gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
 {
     setlocale(LC_ALL, "");
+    GError *preview_error = NULL;
+    SeekeyPreviewSession *preview =
+        seekey_preview_session_start(config, &preview_error);
+    if (preview == NULL) {
+        g_printerr("seekey: preview unavailable: %s\n",
+                   preview_error->message);
+        g_clear_error(&preview_error);
+    }
     initscr();
     cbreak();
     noecho();
@@ -1106,6 +1119,10 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
     st.selected = tui_first_in_group(&st, st.current_group);
 
     while (st.running) {
+        if (preview != NULL &&
+            !seekey_preview_session_sync(preview, config, &preview_error)) {
+            g_clear_error(&preview_error);
+        }
         tui_redraw(&st);
         if (st.status_ttl > 0) st.status_ttl--;
         int ch = getch();
@@ -1114,6 +1131,7 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
             /* Move selection up within the current group. */
             int indices[TUI_FIELD_COUNT];
             int n = tui_group_indices(&st, st.current_group, indices);
+            if (n <= 0) break;
             int local = 0;
             for (int i = 0; i < n; i++) {
                 if (indices[i] == st.selected) { local = i; break; }
@@ -1125,6 +1143,7 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
         case KEY_DOWN: case 'j': {
             int indices[TUI_FIELD_COUNT];
             int n = tui_group_indices(&st, st.current_group, indices);
+            if (n <= 0) break;
             int local = 0;
             for (int i = 0; i < n; i++) {
                 if (indices[i] == st.selected) { local = i; break; }
@@ -1246,7 +1265,7 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
             }
             break;
         case 'W': case 'w':
-            seekey_window_state_clear();
+            seekey_window_state_clear_monitor();
             tui_set_status(&st, "Window state cleared; next launch uses focused monitor");
             break;
         case 'S':
@@ -1275,7 +1294,8 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
     }
 done:
     endwin();
-    return *error == NULL;
+    seekey_preview_session_free(preview);
+    return error == NULL || *error == NULL;
 }
 
 #else  /* SEEKEY_TEST stub */

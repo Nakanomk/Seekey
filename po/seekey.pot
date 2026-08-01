@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: seekey 0.2.0\n"
+"Project-Id-Version: seekey 0.2.1\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
-"POT-Creation-Date: 2026-07-24 18:38+0800\n"
+"POT-Creation-Date: 2026-08-01 13:47+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,91 +17,91 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/main.c:460
+#: src/main.c:507
 msgid "seekey: map fired but no GdkSurface available\n"
 msgstr ""
 
-#: src/main.c:466
+#: src/main.c:513
 msgid "seekey: input region set to empty (click-through enabled)\n"
 msgstr ""
 
-#: src/main.c:545
+#: src/main.c:535
 msgid "seekey: compositor unknown (no WAYLAND_DISPLAY)\n"
 msgstr ""
 
-#: src/main.c:550
+#: src/main.c:540
 #, c-format
 msgid "seekey: compositor %s\n"
 msgstr ""
 
-#: src/main.c:560
+#: src/main.c:550
 msgid ""
 "  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell; layer-shell=auto "
 "works well."
 msgstr ""
 
-#: src/main.c:562
+#: src/main.c:552
 msgid "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:563
+#: src/main.c:553
 msgid ""
 "  hint: layer-shell works; window is anchored to the chosen edge and follows "
 "the focused monitor (persisted across sessions)."
 msgstr ""
 
-#: src/main.c:565
+#: src/main.c:555
 msgid "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:566
+#: src/main.c:556
 msgid "  hint: river supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:567
+#: src/main.c:557
 msgid "  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:568
+#: src/main.c:558
 msgid "  hint: labwc supports wlr-layer-shell; layer-shell=auto works well."
 msgstr ""
 
-#: src/main.c:570
+#: src/main.c:560
 msgid ""
 "  hint: KWin (default KDE Plasma) does not support wlr-layer-shell.  seekey "
 "falls back to a normal window. See README §GNOME/KDE  fallback for window "
 "rules to pin position and raise."
 msgstr ""
 
-#: src/main.c:573
+#: src/main.c:563
 msgid ""
 "  hint: GNOME does not support wlr-layer-shell.  seekey falls back to a "
 "normal window. See README §GNOME/KDE  fallback for window rules to pin "
 "position and raise."
 msgstr ""
 
-#: src/main.c:631
+#: src/main.c:629
 #, c-format
 msgid "seekey: saved monitor '%s' not found, using default\n"
 msgstr ""
 
-#: src/main.c:640
+#: src/main.c:638
 #, c-format
 msgid "seekey: layer-shell required but unavailable: %s\n"
 msgstr ""
 
-#: src/main.c:642
+#: src/main.c:640
 msgid ""
 "seekey: install gtk4-layer-shell and use a compositor that supports wlr-"
 "layer-shell.\n"
 msgstr ""
 
-#: src/main.c:646
+#: src/main.c:644
 #, c-format
 msgid "seekey: using fallback window: %s\n"
 msgstr ""
 
-#: src/main.c:647
+#: src/main.c:645
 msgid ""
 "seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
 "seekey:       The following settings have NO EFFECT in fallback mode:\n"
@@ -114,40 +114,145 @@ msgid ""
 "seekey:       See README §Compatibility model for details.\n"
 msgstr ""
 
-#: src/main.c:695 src/main.c:791 src/main.c:810 src/main.c:820
+#: src/main.c:695 src/main.c:813 src/main.c:832 src/main.c:842 src/main.c:852
 #, c-format
 msgid "seekey: %s\n"
 msgstr ""
 
-#: src/main.c:696
+#: src/main.c:697
 msgid ""
 "seekey: grant read access to /dev/input/event* or run a quick test as root.\n"
 msgstr ""
 
-#: src/main.c:795
+#: src/main.c:817
 #, c-format
 msgid "Wrote config to %s\n"
 msgstr ""
 
-#: src/main.c:814
+#: src/main.c:836
 #, c-format
 msgid "Config OK: %s\n"
 msgstr ""
 
-#: src/layer_shell.c:118
+#: src/gui.c:541 src/gui.c:802
+msgid "Apply value"
+msgstr ""
+
+#: src/gui.c:542
+msgid "Invalid value"
+msgstr ""
+
+#: src/gui.c:619
+msgid "First launch"
+msgstr ""
+
+#: src/gui.c:619
+msgid "Choose launcher behavior"
+msgstr ""
+
+#: src/gui.c:621 src/gui.c:824
+msgid "Open the Seekey menu"
+msgstr ""
+
+#: src/gui.c:622
+msgid "Recommended"
+msgstr ""
+
+#: src/gui.c:627 src/gui.c:834
+msgid "Start the key overlay directly"
+msgstr ""
+
+#: src/gui.c:639
+msgid "Search actions and settings"
+msgstr ""
+
+#: src/gui.c:640
+msgid "Start key overlay"
+msgstr ""
+
+#: src/gui.c:641
+msgid "Save first"
+msgstr ""
+
+#: src/gui.c:657
+msgid "Not chosen"
+msgstr ""
+
+#: src/gui.c:659
+msgid "Menu"
+msgstr ""
+
+#: src/gui.c:660
+msgid "Overlay"
+msgstr ""
+
+#: src/gui.c:661 src/gui.c:820
+msgid "Desktop launcher"
+msgstr ""
+
+#: src/gui.c:663
+msgid "Save configuration"
+msgstr ""
+
+#: src/gui.c:664
+msgid "Unsaved"
+msgstr ""
+
+#: src/gui.c:664
+msgid "Saved"
+msgstr ""
+
+#: src/gui.c:665
+msgid "Reload configuration"
+msgstr ""
+
+#: src/gui.c:677
+msgid "Search settings"
+msgstr ""
+
+#: src/gui.c:688 src/gui.c:716 src/gui.c:740 src/gui.c:790 src/gui.c:803
+#: src/gui.c:840
+msgid "← Back"
+msgstr ""
+
+#: src/gui.c:699 src/gui.c:820
+msgid "Choose a value"
+msgstr ""
+
+#: src/gui.c:702
+msgid "Enabled"
+msgstr ""
+
+#: src/gui.c:711
+msgid "Disabled"
+msgstr ""
+
+#: src/gui.c:727
+msgid "Search values"
+msgstr ""
+
+#: src/gui.c:773
+msgid "Search installed fonts"
+msgstr ""
+
+#: src/gui.c:779
+msgid "System default"
+msgstr ""
+
+#: src/layer_shell.c:153
 #, c-format
 msgid ""
 "seekey: layer-shell active (anchor bottom-left, margin bottom=%u "
 "horizontal=%u)\n"
 msgstr ""
 
-#: src/layer_shell.c:121
+#: src/layer_shell.c:156
 #, c-format
 msgid ""
 "seekey: layer-shell active (anchor bottom-right, margin bottom=%u "
 "horizontal=%u)\n"
 msgstr ""
 
-#: src/layer_shell.c:124
+#: src/layer_shell.c:159
 msgid "seekey: layer-shell active (anchor bottom full-width center)\n"
 msgstr ""

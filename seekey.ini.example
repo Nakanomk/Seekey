@@ -29,6 +29,10 @@ margin-horizontal=0
 # Maximum number of bubbles shown at once. Older bubbles are trimmed.
 max-items=5
 
+# Fallback window size when layer-shell is unavailable.
+window-width=720
+window-height=160
+
 # layer-shell mode:
 #   auto     use layer-shell if available, fall back to a normal window
 #   required use layer-shell and exit if unavailable (stable across workspaces)
@@ -73,12 +77,12 @@ key-radius=6
 key-border-width=1
 key-font-px=20
 key-font-weight=700
-typing-max-width=480    # ≈ characters; long text beyond this gets "…"
-                    # 0 = no max (label grows with text)
-
-# Fallback window size when layer-shell is unavailable.
-window-width=720
-window-height=160
+# Pango font family used by every key and typing bubble. Keep `inherit` to use
+# the desktop's GTK font, preserving the native appearance.
+font-family=inherit
+# Maximum grouped typing-bubble width in pixels. Long text is ellipsized.
+# Set to 0 to disable the limit and let the label grow with its text.
+typing-max-width=480
 
 # ---------------------------------------------------------------------------
 # Advanced: key-bubble colors (GTK CSS color values)
@@ -111,20 +115,20 @@ placeholder-border-color=alpha(#ffffff, 0.14)
 #   out every key to use the built-in defaults.
 # ---------------------------------------------------------------------------
 [icons]
-Backspace="⌫"
-Enter="↵"
-Space="␣"
-Tab="↹"
-Esc="⎋"
-Delete="⌦"
-Up="↑"
-Down="↓"
-Left="←"
-Right="→"
+Backspace=⌫
+Enter=↵
+Space=␣
+Tab=↹
+Esc=⎋
+Delete=⌦
+Up=⬆
+Down=⬇
+Left=⬅
+Right=➡
 
 # ---------------------------------------------------------------------------
 # Optional: Matugen integration
-#   Any color / text field in this file can use the @matugen:<role> syntax
+#   Any color field in this file can use the @matugen:<role> syntax
 #   to pull a color from matugen's colors.json (default at
 #   ~/.cache/matugen/colors.json). Append @<float> to wrap the result in
 #   alpha(...). See the wiki (Matugen Integration page) for full details.

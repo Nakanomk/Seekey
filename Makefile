@@ -28,17 +28,19 @@ endif
 PREFIX ?= /usr/local
 BINDIR := $(PREFIX)/bin
 DATADIR := $(PREFIX)/share/seekey
+APPLICATIONSDIR := $(PREFIX)/share/applications
 LOCALEDIR := $(PREFIX)/share/locale
 
 # gettext package metadata. The preprocessor defaults in src/seekey.h
 # can be overridden at compile time via -DGETTEXT_PACKAGE / -DLOCALEDIR.
 GETTEXT_PACKAGE := seekey
 DOMAIN := $(GETTEXT_PACKAGE)
+VERSION := $(shell sed -n 's/^#define SEEKEY_VERSION "\([^"]*\)"/\1/p' src/seekey.h)
 CPPFLAGS += -DGETTEXT_PACKAGE=\"$(GETTEXT_PACKAGE)\" -DLOCALEDIR=\"$(LOCALEDIR)\"
 
 TARGET := seekey
-SRC := src/main.c src/config.c src/tui.c src/window_state.c \
-      src/input.c src/keynames.c src/layer_shell.c
+SRC := src/main.c src/config.c src/gui.c src/style.c src/preview_session.c src/runtime_lock.c src/tui.c \
+      src/window_state.c src/input.c src/keynames.c src/layer_shell.c
 OBJ := $(SRC:.c=.o)
 
 CPPFLAGS += -D_GNU_SOURCE
@@ -58,8 +60,8 @@ TEST_DEFS := -DSEEKEY_TEST -DG_DISABLE_ASSERT
 TEST_CFLAGS := $(WARNINGS) -O2 -g -Isrc -Itests/vendor/unity $(TEST_DEFS) \
                 $(shell $(PKG_CONFIG) --cflags glib-2.0 gobject-2.0 gio-2.0 gtk4 json-glib-1.0)
 TEST_SRCS := tests/test_main.c tests/test_config.c tests/test_tui.c \
-             tests/test_keynames.c tests/test_window_state.c \
-             tests/test_helpers.c
+             tests/test_keynames.c tests/test_style.c tests/test_window_state.c \
+             tests/test_runtime_lock.c tests/test_helpers.c
 TEST_LDLIBS := $(shell $(PKG_CONFIG) --libs glib-2.0 gobject-2.0 gio-2.0 json-glib-1.0 gtk4) -lm
 
 .PHONY: all clean install uninstall check format pot mo
@@ -69,14 +71,14 @@ all: $(TARGET) $(MO_FILES)
 $(TARGET): $(OBJ)
 	$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LDLIBS)
 
-%.o: %.c src/seekey.h src/config.h src/tui.h src/window_state.h
+%.o: %.c src/seekey.h src/config.h src/gui.h src/style.h src/preview_session.h src/runtime_lock.h src/tui.h src/window_state.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 # Translation rules
-$(POTFILE): $(SRC)
+$(POTFILE): $(SRC) src/seekey.h Makefile
 	@command -v xgettext >/dev/null 2>&1 || { echo "xgettext not installed"; exit 0; }
 	xgettext --language=C --from-code=UTF-8 \
-	  --package-name=$(GETTEXT_PACKAGE) --package-version=0.2.0 \
+	  --package-name=$(GETTEXT_PACKAGE) --package-version=$(VERSION) \
 	  --copyright-holder="Seekey contributors" \
 	  --msgid-bugs-address="https://github.com/Nakanomk/seekey/issues" \
 	  --keyword=_ --keyword=N_ \
@@ -99,6 +101,8 @@ mo: $(MO_FILES)
 install: all
 	install -Dm755 $(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET)
 	install -Dm644 seekey.ini.example $(DESTDIR)$(DATADIR)/seekey.ini.example
+	install -Dm644 data/dev.seekey.desktop \
+	  $(DESTDIR)$(APPLICATIONSDIR)/dev.seekey.desktop
 	@for mo in $(MO_FILES); do \
 	    lang=$$(echo $$mo | sed 's|^locale/\([^/]*\)/.*|\1|'); \
 	    install -Dm644 $$mo $(DESTDIR)$(LOCALEDIR)/$$lang/LC_MESSAGES/$(DOMAIN).mo; \
@@ -107,6 +111,7 @@ install: all
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/$(TARGET)
 	rm -f $(DESTDIR)$(DATADIR)/seekey.ini.example
+	rm -f $(DESTDIR)$(APPLICATIONSDIR)/dev.seekey.desktop
 	@for lang in $(shell cat $(LINGUAS_FILE) 2>/dev/null); do \
 	    rm -f $(DESTDIR)$(LOCALEDIR)/$$lang/LC_MESSAGES/$(DOMAIN).mo; \
 	done
@@ -116,10 +121,10 @@ format:
 	    clang-format -i src/*.c src/*.h tests/*.c tests/*.h || \
 	    echo "clang-format not installed, skipping"
 
-$(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/tui.c src/keynames.c src/window_state.c
+$(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/style.c src/tui.c src/keynames.c src/window_state.c src/runtime_lock.c
 	@mkdir -p build
 	$(CC) $(TEST_CFLAGS) $(TEST_SRCS) tests/vendor/unity/unity.c \
-	    src/config.c src/tui.c src/keynames.c src/window_state.c \
+	    src/config.c src/style.c src/tui.c src/keynames.c src/window_state.c src/runtime_lock.c \
 	    $(LDFLAGS) -o $@ $(TEST_LDLIBS)
 
 check: $(TEST_BIN)

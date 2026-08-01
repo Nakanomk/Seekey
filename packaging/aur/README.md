@@ -2,7 +2,7 @@
 
 This directory contains templates for two independent AUR packages:
 
-- `seekey`: stable releases from GitHub tags such as `v0.2.0`
+- `seekey`: stable releases from GitHub tags such as `v0.2.1`
 - `seekey-git`: the latest commit from the `main` branch
 
 Each subdirectory becomes its own AUR Git repository. Do not push the whole
@@ -20,12 +20,12 @@ upstream Seekey repository to AUR.
 
 ## Publish the stable `seekey` package
 
-The stable PKGBUILD downloads `v0.2.0`. Commit and push the release code first,
-then create an immutable tag:
+For the 0.2.1 release, commit and push the release code first, then create the
+immutable tag:
 
 ```sh
-git tag -a v0.2.0 -m "Seekey 0.2.0"
-git push origin main v0.2.0
+git tag -a v0.2.1 -m "Seekey 0.2.1"
+git push origin main v0.2.1
 ```
 
 After GitHub exposes the tag archive, replace the temporary `SKIP` checksum,
@@ -46,12 +46,13 @@ git clone ssh://aur@aur.archlinux.org/seekey.git /tmp/seekey-aur
 cp PKGBUILD .SRCINFO seekey.install /tmp/seekey-aur/
 cd /tmp/seekey-aur
 git add PKGBUILD .SRCINFO seekey.install
-git commit -m "Initial import: seekey 0.2.0"
+git commit -m "Update to seekey 0.2.1"
 git push
 ```
 
 Never publish the stable PKGBUILD while its GitHub archive checksum is `SKIP`.
-The committed stable PKGBUILD uses the real SHA-256 of the `v0.2.0` archive.
+The checked-in stable PKGBUILD remains on the last published tag until the
+`v0.2.1` archive exists and `updpkgsums` can record its real SHA-256.
 
 ## Publish the rolling `seekey-git` package
 
@@ -84,11 +85,11 @@ metadata change.
 
 ## New stable releases
 
-For a later release, for example `0.3.0`:
+For a later release, for example `0.2.2`:
 
 1. Update `SEEKEY_VERSION` and other version metadata upstream.
-2. Commit, push, and create the `v0.3.0` tag.
-3. Set `pkgver=0.3.0` and reset `pkgrel=1` in `seekey/PKGBUILD`.
+2. Commit, push, and create the `v0.2.2` tag.
+3. Set `pkgver=0.2.2` and reset `pkgrel=1` in `seekey/PKGBUILD`.
 4. Run `updpkgsums`, `makepkg --cleanbuild`, `namcap`, and regenerate
    `.SRCINFO`.
 5. Copy the three packaging files into the existing AUR repo, commit, and push.

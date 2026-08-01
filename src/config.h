@@ -34,8 +34,9 @@ gboolean seekey_config_apply_theme(SeekeyConfig *config, const char *name);
 
 /* Resolve the effective config path. Order:
  *   1. --config <path>   (explicit, highest priority)
- *   2. <cwd>/seekey.ini  (project directory)
- *   3. ""                (no file: pure defaults)
+ *   2. --xdg             ($XDG_CONFIG_HOME/seekey/config.ini)
+ *   3. <cwd>/seekey.ini  (project directory)
+ *   4. ""                (no file: pure defaults)
  * Already parses --config from argv. */
 gboolean seekey_config_resolve_path(SeekeyConfig *config, int argc, char **argv,
                                     GError **error);
@@ -43,6 +44,11 @@ gboolean seekey_config_resolve_path(SeekeyConfig *config, int argc, char **argv,
 /* Load configuration from `config->config_path`. If the file doesn't
  * exist, returns TRUE with defaults preserved. */
 gboolean seekey_config_load(SeekeyConfig *config, GError **error);
+
+/* Reset to hard-coded defaults and reload the current config file while
+ * preserving the configuration-file and runtime Matugen paths. On failure,
+ * `config` remains unchanged. */
+gboolean seekey_config_reload(SeekeyConfig *config, GError **error);
 
 /* Save the current config to `config->config_path`. Creates parent
  * directories as needed. */
@@ -66,7 +72,11 @@ gboolean seekey_parse_args(SeekeyConfig *config, int *argc, char ***argv,
 /* Returns TRUE if `flag` is present in argv. */
 gboolean seekey_cli_has_flag(int argc, char **argv, const char *flag);
 
-/* Build the default save path: <cwd>/seekeyini. Caller frees with g_free.
+/* Print --help or --version and return TRUE when either informational flag is
+ * present. This is safe to call before configuration discovery/loading. */
+gboolean seekey_cli_handle_info(int argc, char **argv);
+
+/* Build the default save path: <cwd>/seekey.ini. Caller frees with g_free.
  * Returns NULL if cwd cannot be determined (in which case "." is used). */
 char *seekey_default_save_path(void);
 
@@ -90,12 +100,18 @@ GHashTable *seekey_matugen_load(const char *path, GError **error);
 /* Resolve a value of the form "@matugen:<role>" or
  * "@matugen:<role>@<alpha>" against the colors table. If the value
  * doesn't start with "@matugen:" it is duplicated verbatim. If the role
- * isn't in the table, the original value (without the prefix) is
- * returned. The caller frees the result with g_free. */
+ * isn't in the table, the original value is returned unchanged. The caller
+ * frees the result with g_free. */
 char *seekey_matugen_resolve_value(const char *value, GHashTable *colors);
 
 /* Locate --config <path> in argv and copy to `config->config_path` if
  * present. Does not return an error; missing flag is non-fatal. */
 void seekey_cli_extract_config_path(SeekeyConfig *config, int argc, char **argv);
+
+/* Locate --matugen <path> in argv before the config file is loaded. This is
+ * separate from full argument parsing so CLI colors can participate in the
+ * initial @matugen reference resolution. */
+void seekey_cli_extract_matugen_path(SeekeyConfig *config, int argc,
+                                     char **argv);
 
 #endif

@@ -1,4 +1,5 @@
 #include "seekey.h"
+#include "runtime_lock.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -19,6 +20,7 @@ typedef struct {
 
 struct SeekeyInput {
     SeekeyConfig config;
+    SeekeyRuntimeLock *runtime_lock;
     GPtrArray *devices;
     GPtrArray *mouse_devices;
     GThread *thread;
@@ -460,11 +462,32 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
     input->user_data = user_data;
     g_mutex_init(&input->lock);
 
-    for (guint i = 0; i < 96; i++) {
-        char path[64];
-        g_snprintf(path, sizeof(path), "/dev/input/event%u", i);
-        add_device(input, path);
-        add_mouse_device(input, path);
+    input->runtime_lock =
+        seekey_runtime_lock_acquire("seekey-input.lock", error);
+    if (input->runtime_lock == NULL) {
+        seekey_input_free(input);
+        return NULL;
+    }
+
+    GDir *dir = g_dir_open("/dev/input", 0, NULL);
+    if (dir != NULL) {
+        const char *name = NULL;
+        while ((name = g_dir_read_name(dir)) != NULL) {
+            if (!g_str_has_prefix(name, "event") || name[5] == '\0') continue;
+            gboolean numeric = TRUE;
+            for (const char *p = name + 5; *p != '\0'; p++) {
+                if (!g_ascii_isdigit(*p)) {
+                    numeric = FALSE;
+                    break;
+                }
+            }
+            if (!numeric) continue;
+            char *path = g_build_filename("/dev/input", name, NULL);
+            add_device(input, path);
+            if (input->config.show_mouse) add_mouse_device(input, path);
+            g_free(path);
+        }
+        g_dir_close(dir);
     }
 
     if (input->devices->len == 0) {
@@ -509,6 +532,7 @@ void seekey_input_free(SeekeyInput *input)
     g_ptr_array_free(input->devices, TRUE);
     if (input->mouse_devices != NULL)
         g_ptr_array_free(input->mouse_devices, TRUE);
+    seekey_runtime_lock_free(input->runtime_lock);
     g_mutex_clear(&input->lock);
     g_free(input);
 }
