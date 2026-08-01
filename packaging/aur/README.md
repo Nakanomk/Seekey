@@ -28,8 +28,8 @@ git tag -a v0.2.1 -m "Seekey 0.2.1"
 git push origin main v0.2.1
 ```
 
-After GitHub exposes the tag archive, replace the temporary `SKIP` checksum,
-build, test, and regenerate `.SRCINFO`:
+After GitHub exposes the tag archive, set `pkgver=0.2.1`, reset `pkgrel=1`,
+generate the archive checksum, build, test, and regenerate `.SRCINFO`:
 
 ```sh
 cd packaging/aur/seekey
