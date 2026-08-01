@@ -22,6 +22,7 @@ typedef enum {
 typedef enum {
     MENU_ACTION_BACK,
     MENU_ACTION_START,
+    MENU_ACTION_STOP,
     MENU_ACTION_GROUP,
     MENU_ACTION_FIELD,
     MENU_ACTION_SET_BOOL,
@@ -87,6 +88,7 @@ typedef struct {
     TuiGroup active_group;
     guint active_field;
     gboolean first_desktop_launch;
+    gboolean overlay_running;
     gboolean syncing;
     gboolean dirty;
     SeekeyPreviewSession *preview;
@@ -602,6 +604,56 @@ static gboolean menu_launch_overlay(MenuState *state)
     return ok;
 }
 
+static GApplication *menu_overlay_proxy(GError **error)
+{
+    GApplication *proxy = g_application_new("dev.seekey",
+                                             G_APPLICATION_DEFAULT_FLAGS);
+    if (!g_application_register(proxy, NULL, error)) {
+        g_object_unref(proxy);
+        return NULL;
+    }
+    return proxy;
+}
+
+static gboolean menu_overlay_is_running(void)
+{
+    GError *error = NULL;
+    GApplication *proxy = menu_overlay_proxy(&error);
+    if (proxy == NULL) {
+        g_printerr("seekey: cannot query overlay state: %s\n",
+                   error->message);
+        g_clear_error(&error);
+        return FALSE;
+    }
+    gboolean running = g_application_get_is_remote(proxy);
+    g_object_unref(proxy);
+    return running;
+}
+
+static gboolean menu_stop_overlay(GError **error)
+{
+    GApplication *proxy = menu_overlay_proxy(error);
+    if (proxy == NULL) return FALSE;
+
+    if (!g_application_get_is_remote(proxy)) {
+        g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                            "key overlay is not running");
+        g_object_unref(proxy);
+        return FALSE;
+    }
+    if (!g_action_group_has_action(G_ACTION_GROUP(proxy), "quit-overlay")) {
+        g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                            "running key overlay does not support remote stop");
+        g_object_unref(proxy);
+        return FALSE;
+    }
+
+    g_action_group_activate_action(G_ACTION_GROUP(proxy), "quit-overlay",
+                                   NULL);
+    g_object_unref(proxy);
+    return TRUE;
+}
+
 static void save_desktop_preference(gboolean show_menu)
 {
     SeekeyWindowState saved;
@@ -637,8 +689,12 @@ static void menu_show_root(MenuState *state)
     menu_clear(state);
     menu_reset_search(state);
     menu_set_prompt(state, "Seekey", _("Search actions and settings"));
-    menu_add_action(state, MENU_ACTION_START, _("Start key overlay"),
-                    state->dirty ? _("Save first") : NULL);
+    if (state->overlay_running) {
+        menu_add_action(state, MENU_ACTION_STOP, _("Stop key overlay"), NULL);
+    } else {
+        menu_add_action(state, MENU_ACTION_START, _("Start key overlay"),
+                        state->dirty ? _("Save first") : NULL);
+    }
     for (int group = 0; group < TUI_GROUP_COUNT; group++) {
         char *count = g_strdup_printf(
             "[%zu]", tui_count_in_group(state->fields, state->field_count,
@@ -901,6 +957,19 @@ static void menu_activate_action(MenuState *state, MenuAction *action)
         if ((!state->dirty || menu_save(state)) && menu_launch_overlay(state))
             g_application_quit(G_APPLICATION(state->app));
         break;
+    case MENU_ACTION_STOP: {
+        GError *error = NULL;
+        if (menu_stop_overlay(&error)) {
+            state->overlay_running = FALSE;
+            menu_show_root(state);
+        } else {
+            g_printerr("seekey: cannot stop overlay: %s\n", error->message);
+            g_clear_error(&error);
+            state->overlay_running = menu_overlay_is_running();
+            menu_show_root(state);
+        }
+        break;
+    }
     case MENU_ACTION_GROUP:
         menu_show_group(state, (TuiGroup)action->index);
         break;
@@ -1151,6 +1220,7 @@ gboolean seekey_config_gui_run(SeekeyConfig *config,
     MenuState state = {
         .config = config,
         .first_desktop_launch = first_desktop_launch,
+        .overlay_running = menu_overlay_is_running(),
     };
     GError *preview_error = NULL;
     state.preview = seekey_preview_session_start(config, &preview_error);

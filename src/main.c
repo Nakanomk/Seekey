@@ -705,6 +705,14 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_window_present(GTK_WINDOW(window));
 }
 
+static void quit_overlay_action(GSimpleAction *action, GVariant *parameter,
+                                gpointer user_data)
+{
+    (void)action;
+    (void)parameter;
+    g_application_quit(G_APPLICATION(user_data));
+}
+
 static void shutdown_app(GApplication *app, gpointer user_data)
 {
     AppState *state = user_data;
@@ -860,6 +868,13 @@ int main(int argc, char **argv)
         state.config.preview_child ? NULL : "dev.seekey",
         state.config.preview_child ? G_APPLICATION_NON_UNIQUE
                                    : G_APPLICATION_DEFAULT_FLAGS);
+    if (!state.config.preview_child) {
+        const GActionEntry actions[] = {
+            {"quit-overlay", quit_overlay_action, NULL, NULL, NULL},
+        };
+        g_action_map_add_action_entries(G_ACTION_MAP(app), actions,
+                                        G_N_ELEMENTS(actions), app);
+    }
     g_signal_connect(app, "activate", G_CALLBACK(activate), &state);
     g_signal_connect(app, "shutdown", G_CALLBACK(shutdown_app), &state);
 

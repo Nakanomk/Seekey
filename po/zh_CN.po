@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: seekey 0.2.1\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
-"POT-Creation-Date: 2026-08-01 13:47+0800\n"
+"POT-Creation-Date: 2026-08-01 23:50+0800\n"
 "PO-Revision-Date: 2026-06-23 03:11+0800\n"
 "Last-Translator: Seekey contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -129,7 +129,7 @@ msgstr ""
 "seekey：       Sway、river），或在支持的系统上安装 gtk4-layer-shell。\n"
 "seekey：       详见 README §Compatibility model。\n"
 
-#: src/main.c:695 src/main.c:813 src/main.c:832 src/main.c:842 src/main.c:852
+#: src/main.c:695 src/main.c:821 src/main.c:840 src/main.c:850 src/main.c:860
 #, c-format
 msgid "seekey: %s\n"
 msgstr "seekey：%s\n"
@@ -139,118 +139,122 @@ msgid ""
 "seekey: grant read access to /dev/input/event* or run a quick test as root.\n"
 msgstr "seekey：给 /dev/input/event* 加上读权限，或者用 root 跑一次试试。\n"
 
-#: src/main.c:817
+#: src/main.c:825
 #, c-format
 msgid "Wrote config to %s\n"
 msgstr "配置已写入 %s\n"
 
-#: src/main.c:836
+#: src/main.c:844
 #, c-format
 msgid "Config OK: %s\n"
 msgstr "配置正确：%s\n"
 
-#: src/gui.c:541 src/gui.c:802
+#: src/gui.c:543 src/gui.c:858
 msgid "Apply value"
 msgstr "应用此值"
 
-#: src/gui.c:542
+#: src/gui.c:544
 msgid "Invalid value"
 msgstr "值无效"
 
-#: src/gui.c:619
+#: src/gui.c:671
 msgid "First launch"
 msgstr "首次启动"
 
-#: src/gui.c:619
+#: src/gui.c:671
 msgid "Choose launcher behavior"
 msgstr "选择桌面入口行为"
 
-#: src/gui.c:621 src/gui.c:824
+#: src/gui.c:673 src/gui.c:880
 msgid "Open the Seekey menu"
 msgstr "打开 Seekey 菜单"
 
-#: src/gui.c:622
+#: src/gui.c:674
 msgid "Recommended"
 msgstr "推荐"
 
-#: src/gui.c:627 src/gui.c:834
+#: src/gui.c:679 src/gui.c:890
 msgid "Start the key overlay directly"
 msgstr "直接启动按键浮层"
 
-#: src/gui.c:639
+#: src/gui.c:691
 msgid "Search actions and settings"
 msgstr "搜索操作和设置"
 
-#: src/gui.c:640
+#: src/gui.c:693
+msgid "Stop key overlay"
+msgstr "关闭按键浮层"
+
+#: src/gui.c:695
 msgid "Start key overlay"
 msgstr "启动按键浮层"
 
-#: src/gui.c:641
+#: src/gui.c:696
 msgid "Save first"
 msgstr "将先保存"
 
-#: src/gui.c:657
+#: src/gui.c:713
 msgid "Not chosen"
 msgstr "尚未选择"
 
-#: src/gui.c:659
+#: src/gui.c:715
 msgid "Menu"
 msgstr "菜单"
 
-#: src/gui.c:660
+#: src/gui.c:716
 msgid "Overlay"
 msgstr "按键浮层"
 
-#: src/gui.c:661 src/gui.c:820
+#: src/gui.c:717 src/gui.c:876
 msgid "Desktop launcher"
 msgstr "桌面启动器"
 
-#: src/gui.c:663
+#: src/gui.c:719
 msgid "Save configuration"
 msgstr "保存配置"
 
-#: src/gui.c:664
+#: src/gui.c:720
 msgid "Unsaved"
 msgstr "未保存"
 
-#: src/gui.c:664
+#: src/gui.c:720
 msgid "Saved"
 msgstr "已保存"
 
-#: src/gui.c:665
+#: src/gui.c:721
 msgid "Reload configuration"
 msgstr "重新加载配置"
 
-#: src/gui.c:677
+#: src/gui.c:733
 msgid "Search settings"
 msgstr "搜索设置"
 
-#: src/gui.c:688 src/gui.c:716 src/gui.c:740 src/gui.c:790 src/gui.c:803
-#: src/gui.c:840
+#: src/gui.c:744 src/gui.c:772 src/gui.c:796 src/gui.c:846 src/gui.c:859
+#: src/gui.c:896
 msgid "← Back"
 msgstr "← 返回"
 
-#: src/gui.c:699 src/gui.c:820
+#: src/gui.c:755 src/gui.c:876
 msgid "Choose a value"
 msgstr "选择一个值"
 
-#: src/gui.c:702
+#: src/gui.c:758
 msgid "Enabled"
 msgstr "启用"
 
-#: src/gui.c:711
+#: src/gui.c:767
 msgid "Disabled"
 msgstr "禁用"
 
-#: src/gui.c:727
+#: src/gui.c:783
 msgid "Search values"
 msgstr "搜索可选值"
 
-#: src/gui.c:773
+#: src/gui.c:829
 msgid "Search installed fonts"
 msgstr "搜索已安装字体"
 
-#: src/gui.c:779
+#: src/gui.c:835
 msgid "System default"
 msgstr "系统默认"
 
