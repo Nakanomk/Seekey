@@ -65,7 +65,8 @@ make                       # 编译
 | 🎨 **开箱即好看** | 七个内置主题（default / nord / dracula / catppuccin / monokai / light / matugen）+ 自定义颜色 + 自定义按键图标。 |
 | 🖼️ **认识 Matugen** | 在 GUI/TUI 里选择 Matugen，或直接写 `@matugen:<role>`；配色跟随壁纸，缺失角色会安全回退。 |
 | ⚙️ **启动器式 GUI** | 按 fuzzel 布局实现的紧凑可搜索菜单，并用真实 GTK/CSS 布局实时预览样式。 |
-| ⌨️ **TUI 配置编辑器** | 在终端里翻 / 改 / 存所有设置，同时用按键浮层预览未保存修改。 |
+| ⌨️ **TUI 配置编辑器** | 在终端里浏览、修改和保存所有设置，并始终保留一个屏上浮层。 |
+| 🔒 **输入隐私模式** | 可正常显示打字、用一个固定标签代替整段输入，或隐藏普通字符而保留快捷键。 |
 
 ---
 
@@ -90,6 +91,22 @@ make                       # 编译
 存在 `~/.cache/matugen/colors.json` 时，GUI 根菜单还会提供**使用 Matugen
 配色**，用于设置按键浮层本身。显式指定的 `--matugen <path>` 会继续传给实时
 预览和由 GUI 启动的浮层，不会退回默认缓存。
+
+编辑器始终只保留一个可见的按键渲染面。真实输入浮层已经运行时，会继续显示它
+并跳过样例预览；没有真实浮层时才启动实时样例。GUI 中关闭真实浮层后会立即补上
+样例，启动真实浮层前则先销毁样例，不再出现两层显示框。
+
+演示密码框或其他敏感输入时，可以在 GUI/TUI 或配置文件中设置
+`typing-display`：
+
+```ini
+[general]
+typing-display=masked  # full、masked 或 off
+```
+
+`masked` 始终只显示一个固定的 `<若干字符>` 气泡，不泄露文字内容或字符
+数量；`off` 完全隐藏普通字符，但快捷键组合和非文字按键仍会显示。启用隐私
+模式后，`--debug-input` 也不会输出普通字符对应的调试行。
 
 想自己手动编译？看 wiki 里的
 [从源码编译](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)。

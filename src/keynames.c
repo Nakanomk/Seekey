@@ -132,6 +132,16 @@ const char *seekey_key_text(guint code, gboolean shifted, gboolean caps_lock)
     }
 }
 
+const char *seekey_typing_display_text(const SeekeyConfig *config,
+                                       const char *typed)
+{
+    if (config == NULL || typed == NULL) return NULL;
+    if (g_strcmp0(config->typing_display, "off") == 0) return NULL;
+    if (g_strcmp0(config->typing_display, "masked") == 0)
+        return _("<Some Characters>");
+    return typed;
+}
+
 /* Default key → icon table.  Config overrides checked first. */
 typedef struct {
     guint code;

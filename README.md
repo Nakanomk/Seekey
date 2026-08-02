@@ -77,7 +77,8 @@ Press some keys — bubbles appear at the bottom of the screen. That's it.
 | 🎨 **Looks nice out of the box** | Seven built-in themes (default, nord, dracula, catppuccin, monokai, light, matugen) + custom colors + custom key icons. |
 | 🖼️ **Matugen-aware** | Pick Matugen from the GUI/TUI or reference `@matugen:<role>` directly; colors follow your wallpaper with safe static fallbacks. |
 | ⚙️ **Launcher-style GUI** | A compact searchable menu modeled on fuzzel's layout, with a live style preview. |
-| ⌨️ **TUI config editor** | Browse / change / save every setting while the key overlay previews unsaved changes. |
+| ⌨️ **TUI config editor** | Browse, change, and save every setting with an on-screen overlay. |
+| 🔒 **Typed-text privacy** | Keep normal typing, replace each typing burst with one fixed label, or hide typed characters while shortcuts remain visible. |
 
 ---
 
@@ -105,6 +106,25 @@ When `~/.cache/matugen/colors.json` is available, the GUI root menu also
 offers **Use Matugen colors** for the key overlay itself. A custom
 `--matugen <path>` is preserved by the live preview and by overlays launched
 from the GUI.
+
+The editors keep at most one key-rendering surface visible. If the real input
+overlay is already running, it remains on screen and the sample preview is
+suppressed. Otherwise, the editor starts the live sample preview. Stopping the
+real overlay from the GUI immediately switches to the sample preview; starting
+the real overlay removes the sample first.
+
+For password prompts or other sensitive input, set `typing-display` in the
+GUI/TUI or configuration file:
+
+```ini
+[general]
+typing-display=masked  # full, masked, or off
+```
+
+`masked` displays one fixed `<Some Characters>` bubble without exposing the
+text or its length. `off` suppresses ordinary typed characters while keeping
+shortcuts and non-text keys visible. Privacy modes also suppress ordinary
+character lines from `--debug-input` output.
 
 Prefer building manually? See
 [Build from source](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)

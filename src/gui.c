@@ -125,6 +125,31 @@ static gboolean menu_sync_preview(gpointer user_data)
     return G_SOURCE_CONTINUE;
 }
 
+static void menu_stop_preview(MenuState *state)
+{
+    if (state->preview_sync_id != 0) {
+        g_source_remove(state->preview_sync_id);
+        state->preview_sync_id = 0;
+    }
+    seekey_preview_session_free(state->preview);
+    state->preview = NULL;
+}
+
+static void menu_start_preview(MenuState *state)
+{
+    if (state->preview != NULL) return;
+
+    GError *error = NULL;
+    state->preview = seekey_preview_session_start(state->config, &error);
+    if (state->preview == NULL) {
+        g_printerr("seekey: preview unavailable: %s\n",
+                   error != NULL ? error->message : "unknown error");
+        g_clear_error(&error);
+        return;
+    }
+    state->preview_sync_id = g_timeout_add(100, menu_sync_preview, state);
+}
+
 static void theme_set_color(char target[16], const char *value)
 {
     if (value == NULL) return;
@@ -641,15 +666,14 @@ static GApplication *menu_overlay_proxy(GError **error)
 static gboolean menu_overlay_is_running(void)
 {
     GError *error = NULL;
-    GApplication *proxy = menu_overlay_proxy(&error);
-    if (proxy == NULL) {
+    gboolean running = FALSE;
+    if (!seekey_overlay_query_running(&running, &error)) {
         g_printerr("seekey: cannot query overlay state: %s\n",
-                   error->message);
+                   error != NULL ? error->message : "unknown error");
         g_clear_error(&error);
-        return FALSE;
+        /* Unknown state: avoid creating a second visible overlay. */
+        return TRUE;
     }
-    gboolean running = g_application_get_is_remote(proxy);
-    g_object_unref(proxy);
     return running;
 }
 
@@ -674,7 +698,27 @@ static gboolean menu_stop_overlay(GError **error)
     g_action_group_activate_action(G_ACTION_GROUP(proxy), "quit-overlay",
                                    NULL);
     g_object_unref(proxy);
-    return TRUE;
+
+    gint64 deadline = g_get_monotonic_time() + 2 * G_TIME_SPAN_SECOND;
+    while (g_get_monotonic_time() < deadline) {
+        gboolean running = TRUE;
+        GError *query_error = NULL;
+        if (!seekey_overlay_query_running(&running, &query_error)) {
+            if (error != NULL)
+                g_propagate_error(error, query_error);
+            else
+                g_clear_error(&query_error);
+            return FALSE;
+        }
+        if (!running) return TRUE;
+        while (g_main_context_iteration(NULL, FALSE)) {
+        }
+        g_usleep(10 * 1000);
+    }
+
+    g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT,
+                        "timed out waiting for the key overlay to stop");
+    return FALSE;
 }
 
 static void save_desktop_preference(gboolean show_menu)
@@ -986,13 +1030,20 @@ static void menu_activate_action(MenuState *state, MenuAction *action)
         menu_go_back(state);
         break;
     case MENU_ACTION_START:
-        if ((!state->dirty || menu_save(state)) && menu_launch_overlay(state))
-            g_application_quit(G_APPLICATION(state->app));
+        if (!state->dirty || menu_save(state)) {
+            menu_stop_preview(state);
+            if (menu_launch_overlay(state)) {
+                g_application_quit(G_APPLICATION(state->app));
+            } else {
+                menu_start_preview(state);
+            }
+        }
         break;
     case MENU_ACTION_STOP: {
         GError *error = NULL;
         if (menu_stop_overlay(&error)) {
             state->overlay_running = FALSE;
+            menu_start_preview(state);
             menu_show_root(state);
         } else {
             g_printerr("seekey: cannot stop overlay: %s\n", error->message);
@@ -1048,8 +1099,13 @@ static void menu_activate_action(MenuState *state, MenuAction *action)
         if (state->page == MENU_PAGE_FIRST_RUN) {
             if (action->bool_value)
                 menu_show_root(state);
-            else if (menu_launch_overlay(state))
-                g_application_quit(G_APPLICATION(state->app));
+            else {
+                menu_stop_preview(state);
+                if (menu_launch_overlay(state))
+                    g_application_quit(G_APPLICATION(state->app));
+                else
+                    menu_start_preview(state);
+            }
         } else {
             menu_show_root(state);
         }
@@ -1261,24 +1317,15 @@ gboolean seekey_config_gui_run(SeekeyConfig *config,
         .first_desktop_launch = first_desktop_launch,
         .overlay_running = menu_overlay_is_running(),
     };
-    GError *preview_error = NULL;
-    state.preview = seekey_preview_session_start(config, &preview_error);
-    if (state.preview == NULL) {
-        g_printerr("seekey: preview unavailable: %s\n",
-                   preview_error->message);
-        g_clear_error(&preview_error);
-    }
+    if (!state.overlay_running) menu_start_preview(&state);
     menu_theme_load(&state.theme);
     state.actions = g_ptr_array_new_with_free_func(menu_action_free);
     state.app = gtk_application_new("dev.seekey.Config",
                                     G_APPLICATION_NON_UNIQUE);
     g_signal_connect(state.app, "activate", G_CALLBACK(menu_activate), &state);
-    if (state.preview != NULL)
-        state.preview_sync_id = g_timeout_add(100, menu_sync_preview, &state);
     char *argv[] = {"seekey-config", NULL};
     int status = g_application_run(G_APPLICATION(state.app), 1, argv);
-    if (state.preview_sync_id != 0) g_source_remove(state.preview_sync_id);
-    seekey_preview_session_free(state.preview);
+    menu_stop_preview(&state);
     g_clear_pointer(&state.font_names, g_ptr_array_unref);
     g_ptr_array_unref(state.actions);
     g_object_unref(state.app);

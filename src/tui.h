@@ -55,7 +55,7 @@ void   tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config);
 size_t tui_count_in_group(const TuiField *fields, size_t count, TuiGroup g);
 
 /* Total number of fields built by tui_build_fields (for assertions). */
-#define TUI_FIELD_COUNT 34
+#define TUI_FIELD_COUNT 35
 
 /* Open the interactive TUI editor. Returns TRUE if no error. On error
  * sets `error` and TUI has been torn down. */

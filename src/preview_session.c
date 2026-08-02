@@ -23,6 +23,33 @@ struct SeekeyPreviewSession {
     pid_t parent_pid;
 };
 
+gboolean seekey_overlay_query_running(gboolean *running, GError **error)
+{
+    g_return_val_if_fail(running != NULL, FALSE);
+
+    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, error);
+    if (bus == NULL) return FALSE;
+
+    GVariant *reply = g_dbus_connection_call_sync(
+        bus,
+        "org.freedesktop.DBus",
+        "/org/freedesktop/DBus",
+        "org.freedesktop.DBus",
+        "NameHasOwner",
+        g_variant_new("(s)", "dev.seekey"),
+        G_VARIANT_TYPE("(b)"),
+        G_DBUS_CALL_FLAGS_NONE,
+        -1,
+        NULL,
+        error);
+    g_object_unref(bus);
+    if (reply == NULL) return FALSE;
+
+    g_variant_get(reply, "(b)", running);
+    g_variant_unref(reply);
+    return TRUE;
+}
+
 static void preview_child_setup(gpointer user_data)
 {
     SeekeyPreviewSession *session = user_data;

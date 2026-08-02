@@ -7,6 +7,7 @@ extern int run_keynames_tests(void);
 extern int run_style_tests(void);
 extern int run_window_state_tests(void);
 extern int run_runtime_lock_tests(void);
+extern int run_preview_session_tests(void);
 
 void setUp(void)
 {
@@ -28,6 +29,7 @@ int main(int argc, char **argv)
     failures += run_style_tests();
     failures += run_window_state_tests();
     failures += run_runtime_lock_tests();
+    failures += run_preview_session_tests();
     test_cleanup();
     return failures;
 }

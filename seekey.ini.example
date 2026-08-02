@@ -17,6 +17,12 @@ duration-ms=1200
 # Pause after typing before the next character starts a new text bubble.
 typing-idle-ms=650
 
+# Typed-text privacy mode:
+#   full   show and group typed characters normally
+#   masked show one fixed <Some Characters> label without revealing length
+#   off    hide ordinary typed characters; shortcuts and non-text keys remain
+typing-display=full
+
 # Fade animation length when disappear=fade. Set to 0 to skip the fade.
 fade-ms=180
 

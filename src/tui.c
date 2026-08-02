@@ -259,6 +259,7 @@ void tui_reset_field(TuiField *field)
 void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
 {
     static const char *LAYER_CHOICES[] = {"auto", "required", "off"};
+    static const char *TYPING_DISPLAY_CHOICES[] = {"full", "masked", "off"};
     static const char *THEME_CHOICES[] = {
         "default", "nord", "dracula", "catppuccin",
         "monokai", "light", "matugen",
@@ -336,6 +337,13 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
                  config->theme, sizeof(config->theme),
                  THEME_CHOICES,
                  (guint)(sizeof(THEME_CHOICES) / sizeof(THEME_CHOICES[0])));
+    CHOICE_FIELD(TUI_GROUP_GENERAL, "typing-display",
+                 "Show typed text, replace it with one privacy label, or hide it.",
+                 "pick: full / masked / off",
+                 config->typing_display, sizeof(config->typing_display),
+                 TYPING_DISPLAY_CHOICES,
+                 (guint)(sizeof(TYPING_DISPLAY_CHOICES) /
+                         sizeof(TYPING_DISPLAY_CHOICES[0])));
 
     BOOL_FIELD(TUI_GROUP_GENERAL, "merge-repeats", "Show repeated keys as Key xN.",
                "toggle yes/no", merge_repeats);
@@ -1084,11 +1092,20 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
 {
     setlocale(LC_ALL, "");
     GError *preview_error = NULL;
-    SeekeyPreviewSession *preview =
-        seekey_preview_session_start(config, &preview_error);
-    if (preview == NULL) {
+    gboolean overlay_running = TRUE;
+    if (!seekey_overlay_query_running(&overlay_running, &preview_error)) {
+        g_printerr("seekey: cannot query overlay state: %s\n",
+                   preview_error != NULL ? preview_error->message
+                                         : "unknown error");
+        g_clear_error(&preview_error);
+    }
+    SeekeyPreviewSession *preview = NULL;
+    if (!overlay_running)
+        preview = seekey_preview_session_start(config, &preview_error);
+    if (!overlay_running && preview == NULL) {
         g_printerr("seekey: preview unavailable: %s\n",
-                   preview_error->message);
+                   preview_error != NULL ? preview_error->message
+                                         : "unknown error");
         g_clear_error(&preview_error);
     }
     initscr();

@@ -73,6 +73,7 @@ typedef struct {
     char align[16];
     char disappear[16];
     char layer_shell[16];
+    char typing_display[16];
     char theme[32];
     char key_font_family[128];
     char foreground[64];
@@ -115,6 +116,8 @@ void seekey_input_free(SeekeyInput *input);
 
 const char *seekey_key_name(guint code);
 const char *seekey_key_text(guint code, gboolean shifted, gboolean caps_lock);
+const char *seekey_typing_display_text(const SeekeyConfig *config,
+                                       const char *typed);
 const char *seekey_key_icon(guint code, const SeekeyConfig *config);
 const char *seekey_mouse_button_name(guint code);
 gboolean seekey_is_modifier(guint code);

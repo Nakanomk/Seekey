@@ -28,6 +28,7 @@ static void test_set_defaults_all_fields(void)
     TEST_ASSERT_EQUAL_STRING("right", c.align);
     TEST_ASSERT_EQUAL_STRING("fade", c.disappear);
     TEST_ASSERT_EQUAL_STRING("auto", c.layer_shell);
+    TEST_ASSERT_EQUAL_STRING("full", c.typing_display);
     TEST_ASSERT_EQUAL_STRING("default", c.theme);
     TEST_ASSERT_EQUAL_STRING("inherit", c.key_font_family);
     TEST_ASSERT_EQUAL_UINT(0, c.icon_override_count);
@@ -172,6 +173,27 @@ static void test_parse_args_gui_modes(void)
     TEST_ASSERT_TRUE(c.preview_child);
 }
 
+static void test_parse_args_typing_display(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    int argc = 3;
+    char *args[] = {"seekey", "--typing-display", "masked"};
+    char **argv = args;
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_parse_args(&c, &argc, &argv, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("masked", c.typing_display);
+
+    seekey_config_set_defaults(&c);
+    argc = 3;
+    char *bad_args[] = {"seekey", "--typing-display", "secret"};
+    argv = bad_args;
+    TEST_ASSERT_FALSE(seekey_parse_args(&c, &argc, &argv, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    g_clear_error(&err);
+}
+
 static void test_extract_matugen_path_before_load(void)
 {
     SeekeyConfig c;
@@ -255,6 +277,7 @@ static void test_load_save_roundtrip(void)
     seekey_config_set_defaults(&c);
     c.duration_ms = 2500;
     c.typing_idle_ms = 900;
+    g_strlcpy(c.typing_display, "masked", sizeof(c.typing_display));
     c.theme[0] = '\0';
     g_strlcpy(c.theme, "nord", sizeof(c.theme));
     seekey_config_apply_theme(&c, "nord");
@@ -280,6 +303,7 @@ static void test_load_save_roundtrip(void)
 
     TEST_ASSERT_EQUAL_UINT(2500, c2.duration_ms);
     TEST_ASSERT_EQUAL_UINT(900, c2.typing_idle_ms);
+    TEST_ASSERT_EQUAL_STRING("masked", c2.typing_display);
     TEST_ASSERT_EQUAL_STRING("nord", c2.theme);
     TEST_ASSERT_FALSE(c2.merge_repeats);
     TEST_ASSERT_EQUAL_UINT(42, c2.key_min_width);
@@ -318,6 +342,21 @@ static void test_load_invalid_choice_fails(void)
     TEST_ASSERT_FALSE(seekey_config_load(&c, &err));
     TEST_ASSERT_NOT_NULL(err);
     g_error_free(err);
+    g_free(path);
+}
+
+static void test_load_invalid_typing_display_fails(void)
+{
+    char *path = test_write_file(
+        "invalid-typing-display.ini",
+        "[general]\ntyping-display=password\n");
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    GError *err = NULL;
+    TEST_ASSERT_FALSE(seekey_config_load(&c, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    g_clear_error(&err);
     g_free(path);
 }
 
@@ -955,6 +994,7 @@ int run_config_tests(void)
     RUN_TEST(test_load_empty_path_returns_ok);
     RUN_TEST(test_parse_args_mouse_flags);
     RUN_TEST(test_parse_args_gui_modes);
+    RUN_TEST(test_parse_args_typing_display);
     RUN_TEST(test_extract_matugen_path_before_load);
     RUN_TEST(test_load_typing_max_width_zero);
     RUN_TEST(test_load_legacy_style_window_size);
@@ -962,6 +1002,7 @@ int run_config_tests(void)
     RUN_TEST(test_load_save_roundtrip);
     RUN_TEST(test_load_invalid_uint_range_fails);
     RUN_TEST(test_load_invalid_choice_fails);
+    RUN_TEST(test_load_invalid_typing_display_fails);
     RUN_TEST(test_load_invalid_boolean_fails);
     RUN_TEST(test_load_unknown_theme_fails);
     RUN_TEST(test_load_too_long_string_fails);

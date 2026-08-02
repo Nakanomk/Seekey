@@ -299,16 +299,23 @@ static void remove_placeholder(AppState *state)
 static void populate_preview_bubbles(AppState *state)
 {
     const char *arrow = seekey_key_icon(KEY_UP, &state->config);
-    const char *samples[] = {"Ctrl + K", "seekey", arrow != NULL ? arrow : "Up"};
+    const char *samples[3] = {0};
+    gboolean typing_samples[3] = {0};
+    guint sample_count = 0;
+    samples[sample_count++] = "Ctrl + K";
+    const char *typing = seekey_typing_display_text(&state->config, "seekey");
+    if (typing != NULL) {
+        typing_samples[sample_count] = TRUE;
+        samples[sample_count++] = typing;
+    }
+    samples[sample_count++] = arrow != NULL ? arrow : "Up";
 
     remove_placeholder(state);
-    for (gsize i = 0;
-         i < G_N_ELEMENTS(samples) && i < state->config.max_items;
-         i++) {
+    for (guint i = 0; i < sample_count && i < state->config.max_items; i++) {
         GtkWidget *label = gtk_label_new(samples[i]);
         gtk_label_set_single_line_mode(GTK_LABEL(label), TRUE);
         gtk_widget_add_css_class(label, "key-bubble");
-        if (i == 1) gtk_widget_add_css_class(label, "typing-bubble");
+        if (typing_samples[i]) gtk_widget_add_css_class(label, "typing-bubble");
         gtk_box_append(GTK_BOX(state->box), label);
     }
 }
@@ -438,7 +445,17 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
         typed = seekey_key_text(event->code, event->shifted, event->caps_lock);
     }
 
-    if (typed != NULL) {
+    const char *displayed_typing =
+        seekey_typing_display_text(&state->config, typed);
+    if (typed != NULL && displayed_typing == NULL) {
+        cancel_active_typing_remove_timeout(state);
+        cancel_active_typing_idle_timeout(state);
+        clear_typing_group(state);
+        detach_last_bubble(state);
+        return;
+    }
+
+    if (displayed_typing != NULL) {
         detach_last_bubble(state);
         if (state->typing_label == NULL ||
             gtk_widget_get_parent(state->typing_label) == NULL) {
@@ -446,7 +463,8 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
             clear_typing_group(state);
             state->typing_remove_timeout_id = 0;
             state->typing_label = gtk_label_new("");
-            state->typing_text = g_string_new(NULL);
+            if (g_strcmp0(state->config.typing_display, "full") == 0)
+                state->typing_text = g_string_new(NULL);
             gtk_label_set_single_line_mode(GTK_LABEL(state->typing_label), TRUE);
             gtk_label_set_ellipsize(GTK_LABEL(state->typing_label), PANGO_ELLIPSIZE_END);
             /* typing-max-width is in CSS pixels; convert to chars using a
@@ -466,11 +484,15 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
             trim_bubbles(state);
         }
 
-        if (state->typing_text == NULL) {
-            state->typing_text = g_string_new(NULL);
+        if (g_strcmp0(state->config.typing_display, "masked") == 0) {
+            gtk_label_set_text(GTK_LABEL(state->typing_label), displayed_typing);
+        } else {
+            if (state->typing_text == NULL)
+                state->typing_text = g_string_new(NULL);
+            g_string_append(state->typing_text, displayed_typing);
+            gtk_label_set_text(GTK_LABEL(state->typing_label),
+                               state->typing_text->str);
         }
-        g_string_append(state->typing_text, typed);
-        gtk_label_set_text(GTK_LABEL(state->typing_label), state->typing_text->str);
 
         schedule_typing_timeouts(state);
         return;

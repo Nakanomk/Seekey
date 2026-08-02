@@ -105,6 +105,8 @@ void seekey_config_set_defaults(SeekeyConfig *config) {
   g_strlcpy(config->align, "right", sizeof(config->align));
   g_strlcpy(config->disappear, "fade", sizeof(config->disappear));
   g_strlcpy(config->layer_shell, "auto", sizeof(config->layer_shell));
+  g_strlcpy(config->typing_display, "full",
+            sizeof(config->typing_display));
   g_strlcpy(config->theme, "default", sizeof(config->theme));
   g_strlcpy(config->key_font_family, "inherit",
             sizeof(config->key_font_family));
@@ -543,6 +545,9 @@ static gboolean seekey_config_load_impl(SeekeyConfig *config, GError **error) {
   keyfile_get_string_value(key_file, "general", "layer-shell",
                            config->layer_shell, sizeof(config->layer_shell),
                            error);
+  keyfile_get_string_value(key_file, "general", "typing-display",
+                           config->typing_display,
+                           sizeof(config->typing_display), error);
 
   keyfile_get_uint_range(key_file, "style", "spacing", 0, 80,
                          &config->box_spacing, error);
@@ -708,6 +713,11 @@ static gboolean seekey_config_load_impl(SeekeyConfig *config, GError **error) {
                 "[general] layer-shell must be one of: auto, required, off");
     return FALSE;
   }
+  if (!valid_choice(config->typing_display, "full", "masked", "off")) {
+    g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                "[general] typing-display must be one of: full, masked, off");
+    return FALSE;
+  }
   if (config->key_font_family[0] == '\0') {
     g_set_error_literal(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
                         "[style] font-family cannot be empty");
@@ -758,6 +768,8 @@ static void keyfile_set_config(GKeyFile *key_file, const SeekeyConfig *config) {
                          (int)config->window_height);
   g_key_file_set_string(key_file, "general", "layer-shell",
                         config->layer_shell);
+  g_key_file_set_string(key_file, "general", "typing-display",
+                        config->typing_display);
   g_key_file_set_boolean(key_file, "general", "merge-repeats",
                          config->merge_repeats);
   g_key_file_set_boolean(key_file, "general", "merge-modifiers",
@@ -987,6 +999,11 @@ gboolean seekey_config_validate(const SeekeyConfig *config, GError **error) {
                 "layer-shell must be one of: auto, required, off");
     return FALSE;
   }
+  if (!valid_choice(config->typing_display, "full", "masked", "off")) {
+    g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                "typing-display must be one of: full, masked, off");
+    return FALSE;
+  }
   if (config->key_font_family[0] == '\0') {
     g_set_error_literal(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
                         "font-family cannot be empty");
@@ -1034,6 +1051,8 @@ static void print_help(void) {
       "  --duration MS          Bubble duration, default 1200\n"
       "  --typing-idle MS       Pause before typed text starts a new bubble, "
       "default 650\n"
+      "  --typing-display MODE  Typed text: full, masked, or off (default "
+      "full)\n"
       "  --fade-ms MS           Fade duration when disappear=fade, default "
       "180\n"
       "  --margin PX            Bottom margin in layer-shell mode, default 0\n"
@@ -1113,6 +1132,13 @@ gboolean seekey_parse_args(SeekeyConfig *config, int *argc, char ***argv,
       if (++i >= *argc ||
           !parse_uint_arg("--typing-idle", (*argv)[i], 100, 5000,
                           &config->typing_idle_ms, error)) {
+        return FALSE;
+      }
+    } else if (g_strcmp0(arg, "--typing-display") == 0) {
+      if (++i >= *argc ||
+          !parse_choice_arg("--typing-display", (*argv)[i], "full", "masked",
+                            "off", config->typing_display,
+                            sizeof(config->typing_display), error)) {
         return FALSE;
       }
     } else if (g_strcmp0(arg, "--fade-ms") == 0) {

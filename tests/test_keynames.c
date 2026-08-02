@@ -58,6 +58,23 @@ static void test_key_text_unknown_returns_null(void)
     TEST_ASSERT_NULL(seekey_key_text(500, FALSE, FALSE));
 }
 
+static void test_typing_display_modes(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    TEST_ASSERT_EQUAL_STRING("a", seekey_typing_display_text(&c, "a"));
+
+    g_strlcpy(c.typing_display, "masked", sizeof(c.typing_display));
+    TEST_ASSERT_EQUAL_STRING("<Some Characters>",
+                             seekey_typing_display_text(&c, "secret"));
+    TEST_ASSERT_EQUAL_STRING("<Some Characters>",
+                             seekey_typing_display_text(&c, "x"));
+
+    g_strlcpy(c.typing_display, "off", sizeof(c.typing_display));
+    TEST_ASSERT_NULL(seekey_typing_display_text(&c, "secret"));
+    TEST_ASSERT_NULL(seekey_typing_display_text(&c, NULL));
+}
+
 static void test_key_icon_default_unicode(void)
 {
     SeekeyConfig c;
@@ -140,6 +157,7 @@ int run_keynames_tests(void)
     RUN_TEST(test_key_text_caps_lock_affects_letters_only);
     RUN_TEST(test_key_text_space_unaffected_by_shift);
     RUN_TEST(test_key_text_unknown_returns_null);
+    RUN_TEST(test_typing_display_modes);
     RUN_TEST(test_key_icon_default_unicode);
     RUN_TEST(test_key_icon_override_wins);
     RUN_TEST(test_is_modifier_table);

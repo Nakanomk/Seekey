@@ -269,7 +269,13 @@ static void dispatch_press(SeekeyInput *input, guint code)
     if (input->pressed[KEY_LEFTMETA] || input->pressed[KEY_RIGHTMETA])
         dispatch->event.modifier_mask |= SEEKEY_MOD_SUPER;
 
-    if (input->config.debug_input) {
+    gboolean private_typing =
+        g_strcmp0(input->config.typing_display, "full") != 0 &&
+        !dispatch->event.has_non_shift_modifier &&
+        !seekey_is_modifier(code) &&
+        seekey_key_text(code, dispatch->event.shifted,
+                        dispatch->event.caps_lock) != NULL;
+    if (input->config.debug_input && !private_typing) {
         g_printerr("seekey: key %u value 1: %s\n",
                    code,
                    dispatch->event.combo);

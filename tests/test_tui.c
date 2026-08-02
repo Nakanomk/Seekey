@@ -39,6 +39,25 @@ static void test_theme_choices_include_matugen(void)
     TEST_FAIL_MESSAGE("theme field not found");
 }
 
+static void test_typing_display_choices(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    TuiField fields[TUI_FIELD_COUNT];
+    size_t count = 0;
+    tui_build_fields(fields, &count, &c);
+
+    for (size_t i = 0; i < count; i++) {
+        if (g_strcmp0(fields[i].label, "typing-display") != 0) continue;
+        TEST_ASSERT_EQUAL_UINT(3, fields[i].choice_count);
+        TEST_ASSERT_EQUAL_STRING("full", fields[i].choices[0]);
+        TEST_ASSERT_EQUAL_STRING("masked", fields[i].choices[1]);
+        TEST_ASSERT_EQUAL_STRING("off", fields[i].choices[2]);
+        return;
+    }
+    TEST_FAIL_MESSAGE("typing-display field not found");
+}
+
 /* Every field must belong to a valid group, and every group must have at
  * least one field (otherwise the tab would be empty). */
 static void test_fields_have_valid_nonempty_groups(void)
@@ -373,6 +392,7 @@ int run_tui_tests(void)
     UnityBegin("test_tui.c");
     RUN_TEST(test_field_count_matches);
     RUN_TEST(test_theme_choices_include_matugen);
+    RUN_TEST(test_typing_display_choices);
     RUN_TEST(test_fields_have_valid_nonempty_groups);
     RUN_TEST(test_count_in_group_sums_to_total);
     RUN_TEST(test_field_value_uint);
