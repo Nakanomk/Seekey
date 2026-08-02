@@ -40,7 +40,8 @@ window-height=160
 layer-shell=auto
 
 # Built-in color theme. Individual [style] color keys override the preset.
-# Presets: default, nord, dracula, catppuccin, monokai, light
+# Presets: default, nord, dracula, catppuccin, monokai, light, matugen
+# The matugen preset reads ~/.cache/matugen/colors.json by default.
 theme=default
 
 # Stack repeated identical bubbles as "Ctrl+C x3" instead of separate bubbles.

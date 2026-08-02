@@ -62,8 +62,8 @@ make                       # 编译
 | 📌 **贴边不挡事** | 在 niri / Hyprland / Sway / river / Wayfire / labwc 上用 `gtk4-layer-shell` 钉在底边，切工作区也不动。还会记住上次在哪台显示器。 |
 | 🪟 **优雅降级** | 在 GNOME / KDE 上跑成一个透明窗口，并明确告诉你哪些设置在这种模式下不生效。 |
 | 🖱️ **点击穿透** | 点击会直接穿透到下面的应用，键盘焦点也永远不会被抢。 |
-| 🎨 **开箱即好看** | 六个内置主题（default / nord / dracula / catppuccin / monokai / light）+ 自定义颜色 + 自定义按键图标。 |
-| 🖼️ **认识 Matugen** | 配置里写 `@matugen:<role>`，配色就能跟随你的壁纸。 |
+| 🎨 **开箱即好看** | 七个内置主题（default / nord / dracula / catppuccin / monokai / light / matugen）+ 自定义颜色 + 自定义按键图标。 |
+| 🖼️ **认识 Matugen** | 在 GUI/TUI 里选择 Matugen，或直接写 `@matugen:<role>`；配色跟随壁纸，缺失角色会安全回退。 |
 | ⚙️ **启动器式 GUI** | 按 fuzzel 布局实现的紧凑可搜索菜单，并用真实 GTK/CSS 布局实时预览样式。 |
 | ⌨️ **TUI 配置编辑器** | 在终端里翻 / 改 / 存所有设置，同时用按键浮层预览未保存修改。 |
 
@@ -86,6 +86,10 @@ make                       # 编译
 菜单会在存在时读取 `~/.config/fuzzel/fuzzel.ini` 的布局与配色，包括写入
 该文件的 Matugen 颜色。无需安装 fuzzel；文件缺失或损坏时会使用安全的内置
 默认值。
+
+存在 `~/.cache/matugen/colors.json` 时，GUI 根菜单还会提供**使用 Matugen
+配色**，用于设置按键浮层本身。显式指定的 `--matugen <path>` 会继续传给实时
+预览和由 GUI 启动的浮层，不会退回默认缓存。
 
 想自己手动编译？看 wiki 里的
 [从源码编译](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)。

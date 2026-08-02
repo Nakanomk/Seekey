@@ -19,6 +19,26 @@ static void test_field_count_matches(void)
     TEST_ASSERT_EQUAL_size_t(TUI_FIELD_COUNT, count);
 }
 
+static void test_theme_choices_include_matugen(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    TuiField fields[TUI_FIELD_COUNT];
+    size_t count = 0;
+    tui_build_fields(fields, &count, &c);
+
+    for (size_t i = 0; i < count; i++) {
+        if (g_strcmp0(fields[i].label, "theme") != 0)
+            continue;
+        for (guint j = 0; j < fields[i].choice_count; j++) {
+            if (g_strcmp0(fields[i].choices[j], "matugen") == 0)
+                return;
+        }
+        TEST_FAIL_MESSAGE("theme field does not include matugen");
+    }
+    TEST_FAIL_MESSAGE("theme field not found");
+}
+
 /* Every field must belong to a valid group, and every group must have at
  * least one field (otherwise the tab would be empty). */
 static void test_fields_have_valid_nonempty_groups(void)
@@ -352,6 +372,7 @@ int run_tui_tests(void)
 {
     UnityBegin("test_tui.c");
     RUN_TEST(test_field_count_matches);
+    RUN_TEST(test_theme_choices_include_matugen);
     RUN_TEST(test_fields_have_valid_nonempty_groups);
     RUN_TEST(test_count_in_group_sums_to_total);
     RUN_TEST(test_field_value_uint);

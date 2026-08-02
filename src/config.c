@@ -29,6 +29,10 @@ static const SeekeyThemePreset THEME_PRESETS[] = {
     {"monokai", "#f8f8f2", "alpha(#75715e, 0.94)", "alpha(#a6e22e, 0.72)",
      "0 7px 22px alpha(#000000, 0.38)", "alpha(#f8f8f2, 0.72)",
      "alpha(#75715e, 0.64)", "alpha(#a6e22e, 0.52)"},
+    {"matugen", "@matugen:on_surface", "@matugen:surface@0.86",
+     "@matugen:outline@0.45", "0 7px 22px alpha(#000000, 0.30)",
+     "@matugen:on_surface@0.74", "@matugen:surface@0.56",
+     "@matugen:outline_variant@0.65"},
 };
 
 gsize seekey_config_theme_count(void) { return G_N_ELEMENTS(THEME_PRESETS); }
@@ -352,7 +356,9 @@ static gboolean valid_choice(const char *value, const char *a, const char *b,
 static void replace_unresolved_matugen_values(SeekeyConfig *config) {
   SeekeyConfig fallback;
   seekey_config_set_defaults(&fallback);
-  seekey_config_apply_theme(&fallback, config->theme);
+  if (g_strcmp0(config->theme, "matugen") != 0) {
+    seekey_config_apply_theme(&fallback, config->theme);
+  }
   struct {
     char *target;
     gsize size;
@@ -819,14 +825,29 @@ static void keyfile_restore_matugen_references(GKeyFile *key_file,
   };
   SeekeyConfig fallback;
   seekey_config_set_defaults(&fallback);
-  seekey_config_apply_theme(&fallback, config->theme);
+  if (g_strcmp0(config->theme, "matugen") != 0) {
+    seekey_config_apply_theme(&fallback, config->theme);
+  }
   const char *fallback_values[] = {
       fallback.foreground, fallback.background, fallback.border_color,
       fallback.shadow, fallback.placeholder_foreground,
       fallback.placeholder_background, fallback.placeholder_border_color,
   };
+  const SeekeyThemePreset *preset =
+      g_strcmp0(config->theme, "matugen") == 0
+          ? seekey_config_theme_lookup("matugen")
+          : NULL;
+  const char *preset_values[] = {
+      preset != NULL ? preset->foreground : NULL,
+      preset != NULL ? preset->background : NULL,
+      preset != NULL ? preset->border_color : NULL,
+      preset != NULL ? preset->shadow : NULL,
+      preset != NULL ? preset->placeholder_foreground : NULL,
+      preset != NULL ? preset->placeholder_background : NULL,
+      preset != NULL ? preset->placeholder_border_color : NULL,
+  };
 
-  gboolean needs_colors = FALSE;
+  gboolean needs_colors = preset != NULL;
   for (gsize i = 0; i < G_N_ELEMENTS(keys); i++) {
     if (raw_values[i] != NULL &&
         g_str_has_prefix(raw_values[i], "@matugen:")) {
@@ -845,7 +866,7 @@ static void keyfile_restore_matugen_references(GKeyFile *key_file,
   }
 
   for (gsize i = 0; i < G_N_ELEMENTS(keys); i++) {
-    const char *raw = raw_values[i];
+    const char *raw = raw_values[i] != NULL ? raw_values[i] : preset_values[i];
     if (raw == NULL || !g_str_has_prefix(raw, "@matugen:")) continue;
     char *resolved = seekey_matugen_resolve_value(raw, colors);
     if (g_strcmp0(current[i], raw) == 0 ||
@@ -1000,7 +1021,7 @@ static void print_help(void) {
       "  --no-layer-shell       Disable gtk4-layer-shell even if available\n"
       "  --layer-shell auto|required|off\n"
       "  --theme NAME           Color preset: default, nord, dracula, "
-      "catppuccin, monokai, light\n"
+      "catppuccin, monokai, light, matugen\n"
       "  --merge-repeats        Stack identical key bubbles as Key xN "
       "(default on)\n"
       "  --no-merge-repeats     Show each key press as a separate bubble\n"

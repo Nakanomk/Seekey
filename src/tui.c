@@ -259,8 +259,10 @@ void tui_reset_field(TuiField *field)
 void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
 {
     static const char *LAYER_CHOICES[] = {"auto", "required", "off"};
-    static const char *THEME_CHOICES[] = {"default", "nord", "dracula",
-                                          "catppuccin", "monokai", "light"};
+    static const char *THEME_CHOICES[] = {
+        "default", "nord", "dracula", "catppuccin",
+        "monokai", "light", "matugen",
+    };
 
     TuiField *f = out;
     size_t i = 0;

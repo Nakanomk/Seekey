@@ -74,8 +74,8 @@ Press some keys — bubbles appear at the bottom of the screen. That's it.
 | 📌 **Anchors out of your way** | Uses `gtk4-layer-shell` on niri / Hyprland / Sway / river / Wayfire / labwc to pin to the bottom edge and stay put across workspaces. Remembers which monitor it was on. |
 | 🪟 **Falls back gracefully** | On GNOME / KDE it runs as a transparent window and tells you exactly which settings have no effect. |
 | 🖱️ **Click-through** | Clicks pass straight through to whatever is underneath. Keyboard focus is never stolen. |
-| 🎨 **Looks nice out of the box** | Six built-in themes (default, nord, dracula, catppuccin, monokai, light) + custom colors + custom key icons. |
-| 🖼️ **Matugen-aware** | Reference `@matugen:<role>` in the config and colors follow your wallpaper. |
+| 🎨 **Looks nice out of the box** | Seven built-in themes (default, nord, dracula, catppuccin, monokai, light, matugen) + custom colors + custom key icons. |
+| 🖼️ **Matugen-aware** | Pick Matugen from the GUI/TUI or reference `@matugen:<role>` directly; colors follow your wallpaper with safe static fallbacks. |
 | ⚙️ **Launcher-style GUI** | A compact searchable menu modeled on fuzzel's layout, with a live style preview. |
 | ⌨️ **TUI config editor** | Browse / change / save every setting while the key overlay previews unsaved changes. |
 
@@ -100,6 +100,11 @@ The menu reads layout and colors from `~/.config/fuzzel/fuzzel.ini` when
 available, including Matugen colors written into that file. Fuzzel itself is
 not required. Missing or malformed fuzzel configuration falls back to safe
 built-in defaults.
+
+When `~/.cache/matugen/colors.json` is available, the GUI root menu also
+offers **Use Matugen colors** for the key overlay itself. A custom
+`--matugen <path>` is preserved by the live preview and by overlays launched
+from the GUI.
 
 Prefer building manually? See
 [Build from source](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)

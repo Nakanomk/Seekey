@@ -23,6 +23,7 @@ typedef enum {
     MENU_ACTION_BACK,
     MENU_ACTION_START,
     MENU_ACTION_STOP,
+    MENU_ACTION_APPLY_MATUGEN,
     MENU_ACTION_GROUP,
     MENU_ACTION_FIELD,
     MENU_ACTION_SET_BOOL,
@@ -98,6 +99,20 @@ typedef struct {
 static void menu_show_root(MenuState *state);
 static void menu_show_group(MenuState *state, TuiGroup group);
 static void menu_show_desktop(MenuState *state);
+
+static gboolean menu_matugen_available(const SeekeyConfig *config)
+{
+    char *path = config->matugen_path[0] != '\0'
+                     ? g_strdup(config->matugen_path)
+                     : seekey_matugen_resolve_path(0, NULL);
+    GError *error = NULL;
+    GHashTable *colors = path != NULL ? seekey_matugen_load(path, &error) : NULL;
+    gboolean available = colors != NULL;
+    g_clear_pointer(&colors, g_hash_table_destroy);
+    g_clear_error(&error);
+    g_free(path);
+    return available;
+}
 
 static gboolean menu_sync_preview(gpointer user_data)
 {
@@ -276,6 +291,7 @@ static void install_menu_css(const MenuTheme *theme)
     char *border = css_color(theme->border);
     char *font = g_strescape(theme->font_family, NULL);
     guint selection_overhang = theme->horizontal_pad / 3;
+    guint list_min_width = 2 * selection_overhang;
     guint row_height = theme->row_height > 0
                            ? theme->row_height
                            : MAX(theme->font_size + 10, 24u);
@@ -301,6 +317,7 @@ static void install_menu_css(const MenuTheme *theme)
         ".fuzzel-counter { color: %s; margin-left: 10px; }"
         ".fuzzel-list {"
         " background: transparent;"
+        " min-width: %upx;"
         " margin-left: -%upx; margin-right: -%upx;"
         "}"
         ".fuzzel-list row {"
@@ -320,9 +337,10 @@ static void install_menu_css(const MenuTheme *theme)
         theme->border_radius, theme->vertical_pad, theme->horizontal_pad,
         font != NULL ? font : "monospace", theme->font_size,
         row_height, theme->inner_pad, prompt, row_height, input, input,
-        placeholder, counter, selection_overhang, selection_overhang,
-        row_height, selection_overhang, text_color, text_color,
-        selection, selection, theme->selection_radius, selection_text);
+        placeholder, counter, list_min_width, selection_overhang,
+        selection_overhang, row_height, selection_overhang, text_color,
+        text_color, selection, selection, theme->selection_radius,
+        selection_text);
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_string(provider, css);
     gtk_style_context_add_provider_for_display(
@@ -588,10 +606,15 @@ static gboolean menu_launch_overlay(MenuState *state)
     char *executable = g_file_read_link("/proc/self/exe", NULL);
     if (executable == NULL) executable = g_find_program_in_path("seekey");
     if (executable == NULL) executable = g_strdup("seekey");
-    char *argv[4] = {executable, NULL, NULL, NULL};
+    char *argv[6] = {executable, NULL, NULL, NULL, NULL, NULL};
+    guint next = 1;
     if (state->config->config_path[0] != '\0') {
-        argv[1] = "--config";
-        argv[2] = state->config->config_path;
+        argv[next++] = "--config";
+        argv[next++] = state->config->config_path;
+    }
+    if (state->config->matugen_path[0] != '\0') {
+        argv[next++] = "--matugen";
+        argv[next++] = state->config->matugen_path;
     }
     GError *error = NULL;
     gboolean ok = g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH,
@@ -695,6 +718,15 @@ static void menu_show_root(MenuState *state)
         menu_add_action(state, MENU_ACTION_START, _("Start key overlay"),
                         state->dirty ? _("Save first") : NULL);
     }
+    gboolean matugen_available = menu_matugen_available(state->config);
+    GtkWidget *matugen_row = menu_add_action(
+        state, MENU_ACTION_APPLY_MATUGEN, _("Use Matugen colors"),
+        !matugen_available
+            ? _("colors.json missing")
+            : g_strcmp0(state->config->theme, "matugen") == 0
+                  ? _("Active")
+                  : _("Available"));
+    gtk_widget_set_sensitive(matugen_row, matugen_available);
     for (int group = 0; group < TUI_GROUP_COUNT; group++) {
         char *count = g_strdup_printf(
             "[%zu]", tui_count_in_group(state->fields, state->field_count,
@@ -970,6 +1002,13 @@ static void menu_activate_action(MenuState *state, MenuAction *action)
         }
         break;
     }
+    case MENU_ACTION_APPLY_MATUGEN:
+        g_strlcpy(state->config->theme, "matugen",
+                  sizeof(state->config->theme));
+        seekey_config_apply_theme(state->config, "matugen");
+        state->dirty = TRUE;
+        menu_show_root(state);
+        break;
     case MENU_ACTION_GROUP:
         menu_show_group(state, (TuiGroup)action->index);
         break;

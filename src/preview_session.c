@@ -16,6 +16,7 @@ struct SeekeyPreviewSession {
     SeekeyRuntimeLock *runtime_lock;
     char *config_path;
     char *executable;
+    char matugen_path[512];
     GPid child_pid;
     SeekeyConfig snapshot;
     gboolean has_snapshot;
@@ -56,19 +57,24 @@ static gboolean write_preview_config(SeekeyPreviewSession *session,
     SeekeyConfig preview = *config;
     g_strlcpy(preview.config_path, session->config_path,
               sizeof(preview.config_path));
-    preview.matugen_path[0] = '\0';
     return seekey_config_save(&preview, error);
 }
 
 static gboolean spawn_child(SeekeyPreviewSession *session, GError **error)
 {
-    char *argv[] = {
+    char *argv[7] = {
         session->executable,
         "--config",
         session->config_path,
         "--preview-child",
         NULL,
+        NULL,
+        NULL,
     };
+    if (session->matugen_path[0] != '\0') {
+        argv[4] = "--matugen";
+        argv[5] = session->matugen_path;
+    }
     return g_spawn_async(NULL, argv, NULL,
                          G_SPAWN_DO_NOT_REAP_CHILD,
                          preview_child_setup, session,
@@ -86,6 +92,8 @@ gboolean seekey_preview_session_sync(SeekeyPreviewSession *session,
         memcmp(&session->snapshot, config, sizeof(*config)) == 0) {
         return TRUE;
     }
+    g_strlcpy(session->matugen_path, config->matugen_path,
+              sizeof(session->matugen_path));
     if (!write_preview_config(session, config, error)) return FALSE;
 
     stop_child(session);

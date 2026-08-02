@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: seekey 0.2.1\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
-"POT-Creation-Date: 2026-08-01 23:50+0800\n"
+"POT-Creation-Date: 2026-08-02 19:11+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -134,112 +134,128 @@ msgstr ""
 msgid "Config OK: %s\n"
 msgstr ""
 
-#: src/gui.c:543 src/gui.c:858
+#: src/gui.c:561 src/gui.c:890
 msgid "Apply value"
 msgstr ""
 
-#: src/gui.c:544
+#: src/gui.c:562
 msgid "Invalid value"
 msgstr ""
 
-#: src/gui.c:671
+#: src/gui.c:694
 msgid "First launch"
 msgstr ""
 
-#: src/gui.c:671
+#: src/gui.c:694
 msgid "Choose launcher behavior"
 msgstr ""
 
-#: src/gui.c:673 src/gui.c:880
+#: src/gui.c:696 src/gui.c:912
 msgid "Open the Seekey menu"
 msgstr ""
 
-#: src/gui.c:674
+#: src/gui.c:697
 msgid "Recommended"
 msgstr ""
 
-#: src/gui.c:679 src/gui.c:890
+#: src/gui.c:702 src/gui.c:922
 msgid "Start the key overlay directly"
 msgstr ""
 
-#: src/gui.c:691
+#: src/gui.c:714
 msgid "Search actions and settings"
 msgstr ""
 
-#: src/gui.c:693
+#: src/gui.c:716
 msgid "Stop key overlay"
 msgstr ""
 
-#: src/gui.c:695
+#: src/gui.c:718
 msgid "Start key overlay"
 msgstr ""
 
-#: src/gui.c:696
+#: src/gui.c:719
 msgid "Save first"
 msgstr ""
 
-#: src/gui.c:713
+#: src/gui.c:723
+msgid "Use Matugen colors"
+msgstr ""
+
+#: src/gui.c:725
+msgid "colors.json missing"
+msgstr ""
+
+#: src/gui.c:727
+msgid "Active"
+msgstr ""
+
+#: src/gui.c:728
+msgid "Available"
+msgstr ""
+
+#: src/gui.c:745
 msgid "Not chosen"
 msgstr ""
 
-#: src/gui.c:715
+#: src/gui.c:747
 msgid "Menu"
 msgstr ""
 
-#: src/gui.c:716
+#: src/gui.c:748
 msgid "Overlay"
 msgstr ""
 
-#: src/gui.c:717 src/gui.c:876
+#: src/gui.c:749 src/gui.c:908
 msgid "Desktop launcher"
 msgstr ""
 
-#: src/gui.c:719
+#: src/gui.c:751
 msgid "Save configuration"
 msgstr ""
 
-#: src/gui.c:720
+#: src/gui.c:752
 msgid "Unsaved"
 msgstr ""
 
-#: src/gui.c:720
+#: src/gui.c:752
 msgid "Saved"
 msgstr ""
 
-#: src/gui.c:721
+#: src/gui.c:753
 msgid "Reload configuration"
 msgstr ""
 
-#: src/gui.c:733
+#: src/gui.c:765
 msgid "Search settings"
 msgstr ""
 
-#: src/gui.c:744 src/gui.c:772 src/gui.c:796 src/gui.c:846 src/gui.c:859
-#: src/gui.c:896
+#: src/gui.c:776 src/gui.c:804 src/gui.c:828 src/gui.c:878 src/gui.c:891
+#: src/gui.c:928
 msgid "← Back"
 msgstr ""
 
-#: src/gui.c:755 src/gui.c:876
+#: src/gui.c:787 src/gui.c:908
 msgid "Choose a value"
 msgstr ""
 
-#: src/gui.c:758
+#: src/gui.c:790
 msgid "Enabled"
 msgstr ""
 
-#: src/gui.c:767
+#: src/gui.c:799
 msgid "Disabled"
 msgstr ""
 
-#: src/gui.c:783
+#: src/gui.c:815
 msgid "Search values"
 msgstr ""
 
-#: src/gui.c:829
+#: src/gui.c:861
 msgid "Search installed fonts"
 msgstr ""
 
-#: src/gui.c:835
+#: src/gui.c:867
 msgid "System default"
 msgstr ""
 

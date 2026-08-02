@@ -503,6 +503,16 @@ static void test_theme_apply_known(void)
     TEST_ASSERT_EQUAL_STRING("alpha(#bd93f9, 0.72)", c.border_color);
 }
 
+static void test_theme_apply_matugen(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    TEST_ASSERT_TRUE(seekey_config_apply_theme(&c, "matugen"));
+    TEST_ASSERT_EQUAL_STRING("@matugen:on_surface", c.foreground);
+    TEST_ASSERT_EQUAL_STRING("@matugen:surface@0.86", c.background);
+    TEST_ASSERT_EQUAL_STRING("@matugen:outline@0.45", c.border_color);
+}
+
 static void test_theme_unknown_keeps_current(void)
 {
     SeekeyConfig c;
@@ -627,7 +637,9 @@ static const char *MATUGEN_SAMPLE =
     "  \"colors\": {\n"
     "    \"primary\": \"#ff00aa\",\n"
     "    \"on_surface\": \"#eeeeee\",\n"
-    "    \"surface\": \"#1a1a1a\"\n"
+    "    \"surface\": \"#1a1a1a\",\n"
+    "    \"outline\": \"#999999\",\n"
+    "    \"outline_variant\": \"#555555\"\n"
     "  }\n"
     "}\n";
 
@@ -797,6 +809,97 @@ static void test_missing_default_matugen_uses_theme_fallback(void)
     g_free(path);
 }
 
+static void test_matugen_theme_resolves_and_survives_save(void)
+{
+    char *mpath = test_write_file("theme-colors.json", MATUGEN_SAMPLE);
+    char *path = test_write_file("matugen-theme.ini",
+                                 "[general]\ntheme=matugen\n");
+
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("#eeeeee", c.foreground);
+    TEST_ASSERT_EQUAL_STRING("alpha(#1a1a1a, 0.86)", c.background);
+    TEST_ASSERT_EQUAL_STRING("alpha(#999999, 0.45)", c.border_color);
+
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+    TEST_ASSERT_NULL(err);
+    char *saved = NULL;
+    TEST_ASSERT_TRUE(g_file_get_contents(path, &saved, NULL, &err));
+    TEST_ASSERT_NOT_NULL(g_strstr_len(
+        saved, -1, "foreground=@matugen:on_surface"));
+    TEST_ASSERT_NOT_NULL(g_strstr_len(
+        saved, -1, "background=@matugen:surface@0.86"));
+
+    g_free(saved);
+    g_free(mpath);
+    g_free(path);
+}
+
+static void test_matugen_theme_preserves_static_override(void)
+{
+    char *mpath = test_write_file("override-colors.json", MATUGEN_SAMPLE);
+    char *path = test_write_file(
+        "matugen-theme-override.ini",
+        "[general]\ntheme=matugen\n[style]\nforeground=#123456\n");
+
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("#123456", c.foreground);
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+
+    char *saved = NULL;
+    TEST_ASSERT_TRUE(g_file_get_contents(path, &saved, NULL, &err));
+    TEST_ASSERT_NOT_NULL(g_strstr_len(saved, -1, "foreground=#123456"));
+    TEST_ASSERT_NOT_NULL(g_strstr_len(
+        saved, -1, "background=@matugen:surface@0.86"));
+
+    g_free(saved);
+    g_free(mpath);
+    g_free(path);
+}
+
+static void test_matugen_theme_missing_file_uses_static_fallback(void)
+{
+    const char *old = g_getenv("MATUGEN_COLORS");
+    char *old_copy = old != NULL ? g_strdup(old) : NULL;
+    g_setenv("MATUGEN_COLORS", "/no/such/matugen-theme.json", TRUE);
+    char *path = test_write_file("missing-matugen-theme.ini",
+                                 "[general]\ntheme=matugen\n");
+
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("matugen", c.theme);
+    TEST_ASSERT_EQUAL_STRING("#f7f7f2", c.foreground);
+    TEST_ASSERT_EQUAL_STRING("alpha(#111318, 0.86)", c.background);
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+    char *saved = NULL;
+    TEST_ASSERT_TRUE(g_file_get_contents(path, &saved, NULL, &err));
+    TEST_ASSERT_NOT_NULL(g_strstr_len(
+        saved, -1, "foreground=@matugen:on_surface"));
+
+    if (old_copy != NULL)
+        g_setenv("MATUGEN_COLORS", old_copy, TRUE);
+    else
+        g_unsetenv("MATUGEN_COLORS");
+    g_free(old_copy);
+    g_free(saved);
+    g_free(path);
+}
+
 static void test_explicit_missing_matugen_fails(void)
 {
     char *path = test_write_file(
@@ -870,6 +973,7 @@ int run_config_tests(void)
     RUN_TEST(test_parse_args_rejects_unknown_theme);
     RUN_TEST(test_save_preserves_comments_unknown_keys_and_matugen);
     RUN_TEST(test_theme_apply_known);
+    RUN_TEST(test_theme_apply_matugen);
     RUN_TEST(test_theme_unknown_keeps_current);
     RUN_TEST(test_theme_count_and_lookup);
     RUN_TEST(test_init_creates_file);
@@ -890,6 +994,9 @@ int run_config_tests(void)
     RUN_TEST(test_matugen_resolve_invalid_alpha);
     RUN_TEST(test_matugen_load_applies_to_config_fields);
     RUN_TEST(test_missing_default_matugen_uses_theme_fallback);
+    RUN_TEST(test_matugen_theme_resolves_and_survives_save);
+    RUN_TEST(test_matugen_theme_preserves_static_override);
+    RUN_TEST(test_matugen_theme_missing_file_uses_static_fallback);
     RUN_TEST(test_explicit_missing_matugen_fails);
     RUN_TEST(test_cli_version_is_handled_before_config);
     return UnityEnd();
