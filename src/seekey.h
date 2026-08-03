@@ -1,6 +1,6 @@
 #pragma once
 
-#define SEEKEY_VERSION "0.2.1"
+#define SEEKEY_VERSION "0.2.2"
 
 /* gettext package name and locale dir (overridable at build time) */
 #ifndef GETTEXT_PACKAGE

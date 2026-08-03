@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: seekey 0.2.1\n"
+"Project-Id-Version: seekey 0.2.2\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
 "POT-Creation-Date: 2026-08-03 07:56+0800\n"
 "PO-Revision-Date: 2026-08-03 02:10+0800\n"

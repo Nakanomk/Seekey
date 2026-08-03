@@ -245,6 +245,51 @@ static void test_parse_args_typing_display(void)
     g_clear_error(&err);
 }
 
+static void test_parse_args_rejects_option_as_path(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+
+    int argc = 3;
+    char *config_args[] = {"seekey", "--config", "--validate-config"};
+    char **argv = config_args;
+    GError *err = NULL;
+    TEST_ASSERT_FALSE(seekey_parse_args(&c, &argc, &argv, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    g_clear_error(&err);
+
+    argc = 3;
+    char *matugen_args[] = {"seekey", "--matugen", "--config"};
+    argv = matugen_args;
+    TEST_ASSERT_FALSE(seekey_parse_args(&c, &argc, &argv, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    g_clear_error(&err);
+}
+
+static void test_parse_args_last_path_wins(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+
+    int argc = 5;
+    char *config_args[] = {"seekey", "--config", "/tmp/first.ini",
+                           "--config", "/tmp/second.ini"};
+    char **argv = config_args;
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_parse_args(&c, &argc, &argv, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("/tmp/second.ini", c.config_path);
+
+    seekey_config_set_defaults(&c);
+    argc = 5;
+    char *matugen_args[] = {"seekey", "--matugen", "/tmp/first.json",
+                            "--matugen", "/tmp/second.json"};
+    argv = matugen_args;
+    TEST_ASSERT_TRUE(seekey_parse_args(&c, &argc, &argv, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("/tmp/second.json", c.matugen_path);
+}
+
 static void test_extract_matugen_path_before_load(void)
 {
     SeekeyConfig c;
@@ -1251,6 +1296,8 @@ int run_config_tests(void)
     RUN_TEST(test_parse_args_mouse_flags);
     RUN_TEST(test_parse_args_gui_modes);
     RUN_TEST(test_parse_args_typing_display);
+    RUN_TEST(test_parse_args_rejects_option_as_path);
+    RUN_TEST(test_parse_args_last_path_wins);
     RUN_TEST(test_extract_matugen_path_before_load);
     RUN_TEST(test_load_typing_max_width_zero);
     RUN_TEST(test_load_legacy_style_window_size);
