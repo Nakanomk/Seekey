@@ -154,10 +154,13 @@ static void theme_set_color(char target[16], const char *value)
 {
     if (value == NULL) return;
     while (*value == '#') value++;
-    if (strlen(value) == 6 || strlen(value) == 8) {
-        g_strlcpy(target, value, 16);
-        if (strlen(target) == 6) g_strlcat(target, "ff", 16);
+    gsize length = strlen(value);
+    if (length != 6 && length != 8) return;
+    for (gsize i = 0; i < length; i++) {
+        if (!g_ascii_isxdigit(value[i])) return;
     }
+    g_strlcpy(target, value, 16);
+    if (length == 6) g_strlcat(target, "ff", 16);
 }
 
 static void menu_theme_defaults(MenuTheme *theme)
@@ -271,12 +274,85 @@ static void menu_theme_apply_key_file(MenuTheme *theme, GKeyFile *key_file,
     }
 }
 
-static void menu_theme_load_file(MenuTheme *theme, const char *path,
-                                 gboolean include_layout)
+static char *menu_theme_include_path(const char *value)
 {
+    if (value == NULL) return NULL;
+    char *copy = g_strdup(value);
+    char *path = g_strstrip(copy);
+    gsize length = strlen(path);
+    if (length >= 2 &&
+        ((path[0] == '"' && path[length - 1] == '"') ||
+         (path[0] == '\'' && path[length - 1] == '\''))) {
+        path[length - 1] = '\0';
+        path++;
+    }
+
+    char *expanded = NULL;
+    if (g_str_has_prefix(path, "~/")) {
+        const char *home = g_get_home_dir();
+        if (home != NULL) expanded = g_build_filename(home, path + 2, NULL);
+    } else if (g_path_is_absolute(path)) {
+        expanded = g_strdup(path);
+    }
+    g_free(copy);
+    return expanded;
+}
+
+static GPtrArray *menu_theme_find_includes(const char *contents)
+{
+    GPtrArray *includes = g_ptr_array_new_with_free_func(g_free);
+    char **lines = g_strsplit(contents, "\n", -1);
+    gboolean in_main = TRUE;
+    for (guint i = 0; lines[i] != NULL; i++) {
+        char *line = g_strstrip(lines[i]);
+        if (line[0] == '\0' || line[0] == '#' || line[0] == ';') continue;
+        if (line[0] == '[') {
+            char *end = strchr(line + 1, ']');
+            if (end != NULL) {
+                *end = '\0';
+                in_main = g_ascii_strcasecmp(line + 1, "main") == 0;
+            }
+            continue;
+        }
+        if (!in_main) continue;
+        char *equals = strchr(line, '=');
+        if (equals == NULL) continue;
+        *equals = '\0';
+        if (g_ascii_strcasecmp(g_strstrip(line), "include") != 0) continue;
+        char *path = menu_theme_include_path(equals + 1);
+        if (path != NULL) g_ptr_array_add(includes, path);
+    }
+    g_strfreev(lines);
+    return includes;
+}
+
+static void menu_theme_load_file_recursive(MenuTheme *theme,
+                                           const char *path,
+                                           gboolean include_layout,
+                                           GHashTable *visited,
+                                           guint depth)
+{
+    if (path == NULL || depth > 16) return;
+    char *canonical = g_canonicalize_filename(path, NULL);
+    if (g_hash_table_contains(visited, canonical)) {
+        g_free(canonical);
+        return;
+    }
+    g_hash_table_add(visited, canonical);
+
     char *contents = NULL;
     gsize length = 0;
+    if (!g_file_test(path, G_FILE_TEST_IS_REGULAR)) return;
     if (!g_file_get_contents(path, &contents, &length, NULL)) return;
+
+    GPtrArray *includes = menu_theme_find_includes(contents);
+    for (guint i = 0; i < includes->len; i++) {
+        menu_theme_load_file_recursive(
+            theme, g_ptr_array_index(includes, i), include_layout,
+            visited, depth + 1);
+    }
+    g_ptr_array_unref(includes);
+
     char *with_main = g_strconcat("[main]\n", contents, NULL);
     g_free(contents);
     GKeyFile *key_file = g_key_file_new();
@@ -286,6 +362,15 @@ static void menu_theme_load_file(MenuTheme *theme, const char *path,
     }
     g_key_file_unref(key_file);
     g_free(with_main);
+}
+
+static void menu_theme_load_file(MenuTheme *theme, const char *path,
+                                 gboolean include_layout)
+{
+    GHashTable *visited = g_hash_table_new_full(
+        g_str_hash, g_str_equal, g_free, NULL);
+    menu_theme_load_file_recursive(theme, path, include_layout, visited, 0);
+    g_hash_table_unref(visited);
 }
 
 static void menu_theme_load(MenuTheme *theme)
@@ -612,6 +697,11 @@ static gboolean menu_save(MenuState *state)
     if (state->config->config_path[0] == '\0') {
         char *path = g_build_filename(g_get_user_config_dir(), "seekey",
                                       "config.ini", NULL);
+        if (strlen(path) >= sizeof(state->config->config_path)) {
+            g_printerr("seekey: default config path is too long\n");
+            g_free(path);
+            return FALSE;
+        }
         g_strlcpy(state->config->config_path, path,
                   sizeof(state->config->config_path));
         g_free(path);

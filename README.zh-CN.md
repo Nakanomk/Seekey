@@ -52,6 +52,9 @@ make                       # 编译
 > 用户组）。详见
 > [问题排查](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting)。
 
+键盘和鼠标事件节点会在运行时持续监视。输入采集成功启动后，重新插入 USB
+键盘、切换扩展坞或更换输入设备都不需要重启 Seekey。
+
 ---
 
 ## 🌟 亮点
@@ -86,7 +89,8 @@ make                       # 编译
 
 菜单会在存在时读取 `~/.config/fuzzel/fuzzel.ini` 的布局与配色，包括写入
 该文件的 Matugen 颜色。无需安装 fuzzel；文件缺失或损坏时会使用安全的内置
-默认值。
+默认值。绝对路径和 `~/` 形式的 `include=` 会递归读取，循环引用和过深嵌套
+会被安全忽略。
 
 存在 `~/.cache/matugen/colors.json` 时，GUI 根菜单还会提供**使用 Matugen
 配色**，用于设置按键浮层本身。显式指定的 `--matugen <path>` 会继续传给实时
@@ -107,6 +111,10 @@ typing-display=masked  # full、masked 或 off
 `masked` 始终只显示一个固定的 `<若干字符>` 气泡，不泄露文字内容或字符
 数量；`off` 完全隐藏普通字符，但快捷键组合和非文字按键仍会显示。启用隐私
 模式后，`--debug-input` 也不会输出普通字符对应的调试行。
+
+文字拼接目前使用内置的美式 evdev 键位映射。其他布局下的按键名和快捷键仍可
+正常显示，但拼接文字可能与非美式布局或输入法最终输入的内容不同；详见
+[问题排查](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting#拼接文字与键盘布局不一致)。
 
 想自己手动编译？看 wiki 里的
 [从源码编译](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)。

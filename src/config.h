@@ -45,6 +45,11 @@ gboolean seekey_config_resolve_path(SeekeyConfig *config, int argc, char **argv,
  * exist, returns TRUE with defaults preserved. */
 gboolean seekey_config_load(SeekeyConfig *config, GError **error);
 
+/* Resolve any @matugen references currently held by `config`. Explicit
+ * `matugen_path` values are strict; the default cache path is best-effort and
+ * falls back to the active static theme when unavailable. */
+gboolean seekey_config_resolve_matugen(SeekeyConfig *config, GError **error);
+
 /* Reset to hard-coded defaults and reload the current config file while
  * preserving the configuration-file and runtime Matugen paths. On failure,
  * `config` remains unchanged. */
@@ -104,14 +109,10 @@ GHashTable *seekey_matugen_load(const char *path, GError **error);
  * frees the result with g_free. */
 char *seekey_matugen_resolve_value(const char *value, GHashTable *colors);
 
-/* Locate --config <path> in argv and copy to `config->config_path` if
- * present. Does not return an error; missing flag is non-fatal. */
-void seekey_cli_extract_config_path(SeekeyConfig *config, int argc, char **argv);
-
 /* Locate --matugen <path> in argv before the config file is loaded. This is
  * separate from full argument parsing so CLI colors can participate in the
  * initial @matugen reference resolution. */
-void seekey_cli_extract_matugen_path(SeekeyConfig *config, int argc,
-                                     char **argv);
+gboolean seekey_cli_extract_matugen_path(SeekeyConfig *config, int argc,
+                                         char **argv, GError **error);
 
 #endif

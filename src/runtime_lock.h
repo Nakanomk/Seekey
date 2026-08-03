@@ -7,6 +7,8 @@ typedef struct SeekeyRuntimeLock SeekeyRuntimeLock;
 
 SeekeyRuntimeLock *seekey_runtime_lock_acquire(const char *name,
                                                GError **error);
+gboolean seekey_runtime_lock_query(const char *name, gboolean *locked,
+                                   GError **error);
 const char *seekey_runtime_lock_path(const SeekeyRuntimeLock *lock);
 void seekey_runtime_lock_free(SeekeyRuntimeLock *lock);
 

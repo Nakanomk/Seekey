@@ -7,3 +7,5 @@ src/layer_shell.c
 src/tui.c
 src/config.c
 src/window_state.c
+src/input.c
+src/keynames.c

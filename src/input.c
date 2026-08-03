@@ -7,6 +7,7 @@
 #include <linux/input-event-codes.h>
 #include <poll.h>
 #include <string.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 #define MAX_KEY_CODE KEY_MAX
@@ -16,6 +17,7 @@ typedef struct {
     struct libevdev *dev;
     char *path;
     char *name;
+    gboolean active;
 } InputDevice;
 
 struct SeekeyInput {
@@ -23,6 +25,7 @@ struct SeekeyInput {
     SeekeyRuntimeLock *runtime_lock;
     GPtrArray *devices;
     GPtrArray *mouse_devices;
+    int watch_fd;
     GThread *thread;
     GMutex lock;
     gboolean stop;
@@ -39,14 +42,15 @@ struct SeekeyInput {
 };
 
 typedef struct {
-    SeekeyInput *input;
+    SeekeyKeyCallback callback;
+    gpointer user_data;
     KeyEventMessage event;
 } Dispatch;
 
 static gboolean dispatch_key_event(gpointer data)
 {
     Dispatch *dispatch = data;
-    dispatch->input->callback(&dispatch->event, dispatch->input->user_data);
+    dispatch->callback(&dispatch->event, dispatch->user_data);
     g_free(dispatch);
     return G_SOURCE_REMOVE;
 }
@@ -138,6 +142,7 @@ static gboolean add_device(SeekeyInput *input, const char *path)
     device->fd = fd;
     device->dev = dev;
     device->path = g_strdup(path);
+    device->active = TRUE;
     const char *device_name = libevdev_get_name(dev);
     device->name = g_strdup(device_name != NULL ? device_name : "keyboard");
     g_ptr_array_add(input->devices, device);
@@ -169,6 +174,7 @@ static gboolean add_mouse_device(SeekeyInput *input, const char *path)
     device->fd = fd;
     device->dev = dev;
     device->path = g_strdup(path);
+    device->active = TRUE;
     const char *name = libevdev_get_name(dev);
     device->name = g_strdup(name ? name : "mouse");
     g_ptr_array_add(input->mouse_devices, device);
@@ -176,6 +182,75 @@ static gboolean add_mouse_device(SeekeyInput *input, const char *path)
     if (input->config.debug_input)
         g_printerr("seekey: using mouse %s (%s)\n", device->path, device->name);
     return TRUE;
+}
+
+static gboolean is_event_node_name(const char *name)
+{
+    if (!g_str_has_prefix(name, "event") || name[5] == '\0') return FALSE;
+    for (const char *p = name + 5; *p != '\0'; p++) {
+        if (!g_ascii_isdigit(*p)) return FALSE;
+    }
+    return TRUE;
+}
+
+static gboolean device_array_has_path(GPtrArray *devices, const char *path)
+{
+    for (guint i = 0; i < devices->len; i++) {
+        InputDevice *device = g_ptr_array_index(devices, i);
+        if (device->active && g_strcmp0(device->path, path) == 0) return TRUE;
+    }
+    return FALSE;
+}
+
+static gboolean prune_inactive_devices(GPtrArray *devices)
+{
+    gboolean changed = FALSE;
+    for (guint i = devices->len; i > 0; i--) {
+        InputDevice *device = g_ptr_array_index(devices, i - 1);
+        if (!device->active ||
+            !g_file_test(device->path, G_FILE_TEST_EXISTS)) {
+            g_ptr_array_remove_index(devices, i - 1);
+            changed = TRUE;
+        }
+    }
+    return changed;
+}
+
+static gboolean scan_input_devices(SeekeyInput *input)
+{
+    gboolean keyboard_changed = prune_inactive_devices(input->devices);
+    prune_inactive_devices(input->mouse_devices);
+
+    GDir *dir = g_dir_open("/dev/input", 0, NULL);
+    if (dir == NULL) return keyboard_changed;
+
+    const char *name = NULL;
+    while ((name = g_dir_read_name(dir)) != NULL) {
+        if (!is_event_node_name(name)) continue;
+        char *path = g_build_filename("/dev/input", name, NULL);
+        if (!device_array_has_path(input->devices, path)) {
+            keyboard_changed = add_device(input, path) || keyboard_changed;
+        }
+        if (input->config.show_mouse &&
+            !device_array_has_path(input->mouse_devices, path)) {
+            add_mouse_device(input, path);
+        }
+        g_free(path);
+    }
+    g_dir_close(dir);
+    return keyboard_changed;
+}
+
+static void setup_input_watch(SeekeyInput *input)
+{
+    input->watch_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+    if (input->watch_fd < 0) return;
+    if (inotify_add_watch(input->watch_fd, "/dev/input",
+                          IN_CREATE | IN_DELETE | IN_MOVED_FROM |
+                              IN_MOVED_TO | IN_ATTRIB) < 0) {
+        close(input->watch_fd);
+        input->watch_fd = -1;
+    }
 }
 
 static gint compare_modifier_codes(gconstpointer a, gconstpointer b)
@@ -241,7 +316,8 @@ static void build_combo(SeekeyInput *input, guint code, char *buffer, gsize size
 static void dispatch_press(SeekeyInput *input, guint code)
 {
     Dispatch *dispatch = g_new0(Dispatch, 1);
-    dispatch->input = input;
+    dispatch->callback = input->callback;
+    dispatch->user_data = input->user_data;
     dispatch->event.code = code;
     dispatch->event.value = 1;
     dispatch->event.shifted = input->pressed[KEY_LEFTSHIFT] ||
@@ -292,6 +368,12 @@ static gboolean is_shift_code(guint code)
 static void emit_event(SeekeyInput *input, const struct input_event *ev)
 {
     if (ev->type != EV_KEY || ev->code > MAX_KEY_CODE) {
+        return;
+    }
+
+    const char *code_name =
+        libevdev_event_code_get_name(EV_KEY, ev->code);
+    if (code_name != NULL && g_str_has_prefix(code_name, "BTN_")) {
         return;
     }
 
@@ -358,7 +440,8 @@ static void emit_mouse_event(SeekeyInput *input, guint code)
     if (name == NULL) return;
 
     Dispatch *dispatch = g_new0(Dispatch, 1);
-    dispatch->input = input;
+    dispatch->callback = input->callback;
+    dispatch->user_data = input->user_data;
     dispatch->event.code = code;
     dispatch->event.value = 1;
     dispatch->event.is_mouse = TRUE;
@@ -371,24 +454,154 @@ static void emit_mouse_event(SeekeyInput *input, guint code)
     g_main_context_invoke(NULL, dispatch_key_event, dispatch);
 }
 
+static void emit_scroll_event(SeekeyInput *input, gboolean horizontal,
+                              gint value)
+{
+    if (value == 0) return;
+
+    int direction;
+    guint code;
+    if (horizontal) {
+        direction = value > 0 ? 2 : 3;
+        code = value > 0 ? SEEKEY_SCROLL_RIGHT : SEEKEY_SCROLL_LEFT;
+    } else {
+        direction = value > 0 ? 0 : 1;
+        code = value > 0 ? SEEKEY_SCROLL_UP : SEEKEY_SCROLL_DOWN;
+    }
+
+    gint64 now = g_get_monotonic_time();
+    if (now - input->last_scroll_time[direction] <= 200000) return;
+    input->last_scroll_time[direction] = now;
+    emit_mouse_event(input, code);
+}
+
+static void handle_mouse_event(SeekeyInput *input, InputDevice *device,
+                               const struct input_event *ev)
+{
+    if (ev->type == EV_KEY && ev->value == 1) {
+        emit_mouse_event(input, ev->code);
+        return;
+    }
+    if (ev->type != EV_REL) return;
+
+    if (ev->code == REL_WHEEL) {
+        emit_scroll_event(input, FALSE, ev->value);
+    } else if (ev->code == REL_HWHEEL) {
+        emit_scroll_event(input, TRUE, ev->value);
+    }
+#ifdef REL_WHEEL_HI_RES
+    else if (ev->code == REL_WHEEL_HI_RES &&
+             !libevdev_has_event_code(device->dev, EV_REL, REL_WHEEL)) {
+        emit_scroll_event(input, FALSE, ev->value);
+    }
+#endif
+#ifdef REL_HWHEEL_HI_RES
+    else if (ev->code == REL_HWHEEL_HI_RES &&
+             !libevdev_has_event_code(device->dev, EV_REL, REL_HWHEEL)) {
+        emit_scroll_event(input, TRUE, ev->value);
+    }
+#endif
+}
+
+static void handle_keyboard_event(SeekeyInput *input,
+                                  const struct input_event *ev)
+{
+    if (ev->type == EV_LED && ev->code == LED_CAPSL) {
+        input->caps_lock = ev->value != 0;
+        input->caps_lock_initialized = TRUE;
+    } else {
+        emit_event(input, ev);
+    }
+}
+
+static void rebuild_keyboard_state(SeekeyInput *input)
+{
+    memset(input->pressed, 0, sizeof(input->pressed));
+    gboolean found_caps_led = FALSE;
+    gboolean caps_lock = FALSE;
+
+    for (guint i = 0; i < input->devices->len; i++) {
+        InputDevice *device = g_ptr_array_index(input->devices, i);
+        if (!device->active) continue;
+        for (guint code = 0; code <= MAX_KEY_CODE; code++) {
+            const char *name = libevdev_event_code_get_name(EV_KEY, code);
+            if (name != NULL && g_str_has_prefix(name, "BTN_")) continue;
+            if (libevdev_has_event_code(device->dev, EV_KEY, code) &&
+                libevdev_get_event_value(device->dev, EV_KEY, code) != 0) {
+                input->pressed[code] = TRUE;
+            }
+        }
+        if (libevdev_has_event_code(device->dev, EV_LED, LED_CAPSL)) {
+            found_caps_led = TRUE;
+            caps_lock = caps_lock ||
+                        libevdev_get_event_value(device->dev, EV_LED,
+                                                 LED_CAPSL) != 0;
+        }
+    }
+
+    if (found_caps_led) {
+        input->caps_lock = caps_lock;
+        input->caps_lock_initialized = TRUE;
+    }
+    input->shift_pending = FALSE;
+}
+
+static void drain_sync_events(SeekeyInput *input, InputDevice *device,
+                              gboolean is_mouse)
+{
+    struct input_event ignored;
+    int rc;
+    do {
+        rc = libevdev_next_event(device->dev, LIBEVDEV_READ_FLAG_SYNC,
+                                 &ignored);
+    } while (rc == LIBEVDEV_READ_STATUS_SYNC);
+
+    if (!is_mouse) rebuild_keyboard_state(input);
+    if (input->config.debug_input) {
+        g_printerr("seekey: resynchronized %s after dropped input events\n",
+                   device->path);
+    }
+}
+
+static gboolean read_device_events(SeekeyInput *input, InputDevice *device,
+                                   gboolean is_mouse)
+{
+    while (TRUE) {
+        struct input_event ev;
+        int rc = libevdev_next_event(device->dev, LIBEVDEV_READ_FLAG_NORMAL,
+                                     &ev);
+        if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
+            if (is_mouse)
+                handle_mouse_event(input, device, &ev);
+            else
+                handle_keyboard_event(input, &ev);
+            continue;
+        }
+        if (rc == LIBEVDEV_READ_STATUS_SYNC) {
+            drain_sync_events(input, device, is_mouse);
+            continue;
+        }
+        if (rc == -EAGAIN) return TRUE;
+        if (input->config.debug_input) {
+            g_printerr("seekey: cannot read %s: %s\n", device->path,
+                       g_strerror(-rc));
+        }
+        return FALSE;
+    }
+}
+
+static void drain_input_watch(int fd)
+{
+    char buffer[4096];
+    while (read(fd, buffer, sizeof(buffer)) > 0) {
+    }
+}
+
 static gpointer input_thread(gpointer data)
 {
     SeekeyInput *input = data;
-    guint kbd_count = input->devices->len;
-    guint mouse_count = input->mouse_devices->len;
-    guint total = kbd_count + mouse_count;
-    struct pollfd *fds = g_new0(struct pollfd, total);
-
-    for (guint i = 0; i < kbd_count; i++) {
-        InputDevice *device = g_ptr_array_index(input->devices, i);
-        fds[i].fd = device->fd;
-        fds[i].events = POLLIN;
-    }
-    for (guint i = 0; i < mouse_count; i++) {
-        InputDevice *device = g_ptr_array_index(input->mouse_devices, i);
-        fds[kbd_count + i].fd = device->fd;
-        fds[kbd_count + i].events = POLLIN;
-    }
+    gint64 next_periodic_scan =
+        g_get_monotonic_time() + 5 * G_TIME_SPAN_SECOND;
 
     while (TRUE) {
         g_mutex_lock(&input->lock);
@@ -396,62 +609,100 @@ static gpointer input_thread(gpointer data)
         g_mutex_unlock(&input->lock);
         if (stop) break;
 
-        int rc = poll(fds, (int)total, 100);
-        if (rc <= 0) continue;
+        guint device_count = 0;
+        for (guint i = 0; i < input->devices->len; i++) {
+            InputDevice *device = g_ptr_array_index(input->devices, i);
+            if (device->active) device_count++;
+        }
+        for (guint i = 0; i < input->mouse_devices->len; i++) {
+            InputDevice *device = g_ptr_array_index(input->mouse_devices, i);
+            if (device->active) device_count++;
+        }
 
-        for (guint i = 0; i < total; i++) {
-            if (!(fds[i].revents & POLLIN)) continue;
+        guint total = device_count + (input->watch_fd >= 0 ? 1 : 0);
+        struct pollfd *fds = g_new0(struct pollfd, total);
+        InputDevice **polled_devices = g_new0(InputDevice *, device_count);
+        gboolean *mouse_flags = g_new0(gboolean, device_count);
+        guint index = 0;
+        for (guint i = 0; i < input->devices->len; i++) {
+            InputDevice *device = g_ptr_array_index(input->devices, i);
+            if (!device->active) continue;
+            fds[index] = (struct pollfd){.fd = device->fd, .events = POLLIN};
+            polled_devices[index] = device;
+            index++;
+        }
+        for (guint i = 0; i < input->mouse_devices->len; i++) {
+            InputDevice *device = g_ptr_array_index(input->mouse_devices, i);
+            if (!device->active) continue;
+            fds[index] = (struct pollfd){.fd = device->fd, .events = POLLIN};
+            polled_devices[index] = device;
+            mouse_flags[index] = TRUE;
+            index++;
+        }
+        guint watch_index = device_count;
+        if (input->watch_fd >= 0) {
+            fds[watch_index] = (struct pollfd){
+                .fd = input->watch_fd, .events = POLLIN};
+        }
 
-            InputDevice *device;
-            gboolean is_mouse;
-            if (i < kbd_count) {
-                device = g_ptr_array_index(input->devices, i);
-                is_mouse = FALSE;
-            } else {
-                device = g_ptr_array_index(input->mouse_devices, i - kbd_count);
-                is_mouse = TRUE;
+        int rc = poll(fds, (nfds_t)total, 250);
+        gboolean needs_rescan =
+            g_get_monotonic_time() >= next_periodic_scan;
+        gboolean keyboard_state_dirty = FALSE;
+        gboolean watch_failed = FALSE;
+
+        if (rc > 0) {
+            for (guint i = 0; i < device_count; i++) {
+                InputDevice *device = polled_devices[i];
+                gboolean is_mouse = mouse_flags[i];
+                if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                    if (input->config.debug_input) {
+                        g_printerr("seekey: input device disconnected: %s\n",
+                                   device->path);
+                    }
+                    device->active = FALSE;
+                    if (!is_mouse) keyboard_state_dirty = TRUE;
+                    needs_rescan = TRUE;
+                    continue;
+                }
+                if ((fds[i].revents & POLLIN) &&
+                    !read_device_events(input, device, is_mouse)) {
+                    device->active = FALSE;
+                    if (!is_mouse) keyboard_state_dirty = TRUE;
+                    needs_rescan = TRUE;
+                }
             }
 
-            struct input_event ev;
-            while (libevdev_next_event(device->dev,
-                                       LIBEVDEV_READ_FLAG_NORMAL,
-                                       &ev) == LIBEVDEV_READ_STATUS_SUCCESS) {
-                if (is_mouse) {
-                    if (ev.type == EV_KEY && ev.value == 1)
-                        emit_mouse_event(input, ev.code);
-                    else if (ev.type == EV_REL && ev.code == REL_WHEEL) {
-                        int dir = ev.value > 0 ? 0 : 1;
-                        gint64 now = g_get_monotonic_time();
-                        if (now - input->last_scroll_time[dir] > 200000) {
-                            input->last_scroll_time[dir] = now;
-                            emit_mouse_event(input,
-                                             ev.value > 0 ? SEEKEY_SCROLL_UP
-                                                          : SEEKEY_SCROLL_DOWN);
-                        }
-                    }
-                    else if (ev.type == EV_REL && ev.code == REL_HWHEEL) {
-                        int dir = ev.value > 0 ? 2 : 3;
-                        gint64 now = g_get_monotonic_time();
-                        if (now - input->last_scroll_time[dir] > 200000) {
-                            input->last_scroll_time[dir] = now;
-                            emit_mouse_event(input,
-                                             ev.value > 0 ? SEEKEY_SCROLL_RIGHT
-                                                          : SEEKEY_SCROLL_LEFT);
-                        }
-                    }
-                } else {
-                    if (ev.type == EV_LED && ev.code == LED_CAPSL) {
-                        input->caps_lock = ev.value != 0;
-                        input->caps_lock_initialized = TRUE;
-                    } else {
-                        emit_event(input, &ev);
-                    }
+            if (input->watch_fd >= 0 && fds[watch_index].revents != 0) {
+                if (fds[watch_index].revents & POLLIN) {
+                    drain_input_watch(input->watch_fd);
+                    needs_rescan = TRUE;
+                }
+                if (fds[watch_index].revents &
+                    (POLLERR | POLLHUP | POLLNVAL)) {
+                    watch_failed = TRUE;
+                    needs_rescan = TRUE;
                 }
             }
         }
-    }
 
-    g_free(fds);
+        g_free(mouse_flags);
+        g_free(polled_devices);
+        g_free(fds);
+
+        if (watch_failed) {
+            close(input->watch_fd);
+            input->watch_fd = -1;
+        }
+        if (needs_rescan) {
+            gboolean keyboard_devices_changed = scan_input_devices(input);
+            if (keyboard_state_dirty || keyboard_devices_changed) {
+                rebuild_keyboard_state(input);
+            }
+            next_periodic_scan =
+                g_get_monotonic_time() + 5 * G_TIME_SPAN_SECOND;
+        }
+    }
     return NULL;
 }
 
@@ -462,6 +713,7 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
 {
     SeekeyInput *input = g_new0(SeekeyInput, 1);
     input->config = *config;
+    input->watch_fd = -1;
     input->devices = g_ptr_array_new_with_free_func(input_device_free);
     input->mouse_devices = g_ptr_array_new_with_free_func(input_device_free);
     input->callback = callback;
@@ -475,26 +727,7 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
         return NULL;
     }
 
-    GDir *dir = g_dir_open("/dev/input", 0, NULL);
-    if (dir != NULL) {
-        const char *name = NULL;
-        while ((name = g_dir_read_name(dir)) != NULL) {
-            if (!g_str_has_prefix(name, "event") || name[5] == '\0') continue;
-            gboolean numeric = TRUE;
-            for (const char *p = name + 5; *p != '\0'; p++) {
-                if (!g_ascii_isdigit(*p)) {
-                    numeric = FALSE;
-                    break;
-                }
-            }
-            if (!numeric) continue;
-            char *path = g_build_filename("/dev/input", name, NULL);
-            add_device(input, path);
-            if (input->config.show_mouse) add_mouse_device(input, path);
-            g_free(path);
-        }
-        g_dir_close(dir);
-    }
+    scan_input_devices(input);
 
     if (input->devices->len == 0) {
         g_set_error(error,
@@ -504,6 +737,8 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
         seekey_input_free(input);
         return NULL;
     }
+
+    setup_input_watch(input);
 
     return input;
 }
@@ -535,6 +770,7 @@ void seekey_input_free(SeekeyInput *input)
         return;
     }
     seekey_input_stop(input);
+    if (input->watch_fd >= 0) close(input->watch_fd);
     g_ptr_array_free(input->devices, TRUE);
     if (input->mouse_devices != NULL)
         g_ptr_array_free(input->mouse_devices, TRUE);

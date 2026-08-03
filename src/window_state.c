@@ -2,33 +2,42 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <unistd.h>
 
 #define STATE_DIR  "seekey"
 #define STATE_FILE "window.ini"
 
+static char *state_base_path(void)
+{
+    const char *configured = g_getenv("XDG_STATE_HOME");
+    if (configured != NULL && configured[0] != '\0') {
+        return g_strdup(configured);
+    }
+
+    const char *home = g_get_home_dir();
+    if (home != NULL && home[0] != '\0') {
+        return g_build_filename(home, ".local", "state", NULL);
+    }
+
+    char *fallback = g_strdup_printf("seekey-state-%u", (guint)geteuid());
+    char *path = g_build_filename(g_get_tmp_dir(), fallback, NULL);
+    g_free(fallback);
+    return path;
+}
+
 char *seekey_window_state_path(void)
 {
-    const char *base = g_getenv("XDG_STATE_HOME");
-    if (base == NULL || base[0] == '\0') {
-        base = g_build_filename(g_get_home_dir(), ".local", "state", NULL);
-    } else {
-        base = g_strdup(base);
-    }
+    char *base = state_base_path();
     char *path = g_build_filename(base, STATE_DIR, STATE_FILE, NULL);
-    g_free((gpointer)base);
+    g_free(base);
     return path;
 }
 
 static char *state_dir_path(void)
 {
-    const char *base = g_getenv("XDG_STATE_HOME");
-    if (base == NULL || base[0] == '\0') {
-        base = g_build_filename(g_get_home_dir(), ".local", "state", NULL);
-    } else {
-        base = g_strdup(base);
-    }
+    char *base = state_base_path();
     char *path = g_build_filename(base, STATE_DIR, NULL);
-    g_free((gpointer)base);
+    g_free(base);
     return path;
 }
 
@@ -39,6 +48,10 @@ gboolean seekey_window_state_load(SeekeyWindowState *out, GError **error)
 
     char *path = seekey_window_state_path();
     if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+        g_free(path);
+        return TRUE;
+    }
+    if (!g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
         g_free(path);
         return TRUE;
     }
@@ -92,6 +105,15 @@ gboolean seekey_window_state_save(const SeekeyWindowState *state, GError **error
     g_free(dir);
 
     char *path = seekey_window_state_path();
+    if (g_file_test(path, G_FILE_TEST_EXISTS) &&
+        !g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
+        if (error != NULL) {
+            g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+                        "State path is not a regular file: %s", path);
+        }
+        g_free(path);
+        return FALSE;
+    }
 
     GKeyFile *kf = g_key_file_new();
     if (state->monitor[0] != '\0') {

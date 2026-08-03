@@ -115,6 +115,29 @@ static void test_state_load_malformed_returns_zeroed(void)
     TEST_ASSERT_EQUAL_STRING("", s.monitor);
 }
 
+static void test_state_rejects_nonregular_save_target(void)
+{
+    seekey_window_state_clear();
+    char *path = seekey_window_state_path();
+    TEST_ASSERT_EQUAL_INT(0, g_mkdir_with_parents(path, 0700));
+
+    SeekeyWindowState loaded;
+    memset(&loaded, 0xFF, sizeof(loaded));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_window_state_load(&loaded, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("", loaded.monitor);
+
+    SeekeyWindowState state = {0};
+    TEST_ASSERT_FALSE(seekey_window_state_save(&state, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    TEST_ASSERT_EQUAL_INT(G_IO_ERROR_INVALID_DATA, err->code);
+    g_clear_error(&err);
+
+    TEST_ASSERT_EQUAL_INT(0, g_rmdir(path));
+    g_free(path);
+}
+
 static void test_state_clear_removes_file(void)
 {
     SeekeyWindowState s;
@@ -159,6 +182,7 @@ int run_window_state_tests(void)
     RUN_TEST(test_state_save_load_roundtrip);
     RUN_TEST(test_clear_monitor_preserves_desktop_preference);
     RUN_TEST(test_state_load_malformed_returns_zeroed);
+    RUN_TEST(test_state_rejects_nonregular_save_target);
     RUN_TEST(test_state_clear_removes_file);
     RUN_TEST(test_state_clear_noop_when_missing);
     int failures = UnityEnd();

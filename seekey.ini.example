@@ -80,7 +80,7 @@ key-min-width=0
 
 key-padding-x=14
 key-padding-y=8
-key-radius=6
+key-radius=12
 key-border-width=1
 key-font-px=20
 key-font-weight=700

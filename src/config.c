@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <json-glib/json-glib.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -33,6 +34,12 @@ static const SeekeyThemePreset THEME_PRESETS[] = {
      "@matugen:outline@0.45", "0 7px 22px alpha(#000000, 0.30)",
      "@matugen:on_surface@0.74", "@matugen:surface@0.56",
      "@matugen:outline_variant@0.65"},
+};
+
+static const char *STYLE_THEME_KEYS[] = {
+    "foreground", "background", "border-color", "shadow",
+    "placeholder-foreground", "placeholder-background",
+    "placeholder-border-color",
 };
 
 gsize seekey_config_theme_count(void) { return G_N_ELEMENTS(THEME_PRESETS); }
@@ -155,11 +162,14 @@ char *seekey_default_save_path(void) {
 
 char *seekey_matugen_resolve_path(int argc, char **argv) {
   /* 1. CLI --matugen <path>. */
+  char *cli_path = NULL;
   for (int i = 1; i < argc; i++) {
     if (g_strcmp0(argv[i], "--matugen") == 0 && i + 1 < argc) {
-      return g_strdup(argv[i + 1]);
+      g_free(cli_path);
+      cli_path = g_strdup(argv[++i]);
     }
   }
+  if (cli_path != NULL) return cli_path;
 
   /* 2. MATUGEN_COLORS env var. */
   const char *env = g_getenv("MATUGEN_COLORS");
@@ -187,6 +197,11 @@ GHashTable *seekey_matugen_load(const char *path, GError **error) {
   if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
     g_set_error(error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
                 "matugen file not found: %s", path);
+    return NULL;
+  }
+  if (!g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
+    g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+                "matugen path is not a regular file: %s", path);
     return NULL;
   }
 
@@ -277,52 +292,73 @@ char *seekey_matugen_resolve_value(const char *value, GHashTable *colors) {
   /* Trailing @<alpha> → wrap in alpha(...). */
   char *end = NULL;
   double alpha = g_ascii_strtod(at + 1, &end);
-  if (end == at + 1 || *end != '\0' || alpha < 0.0 || alpha > 1.0) {
+  if (end == at + 1 || *end != '\0' || !isfinite(alpha) || alpha < 0.0 ||
+      alpha > 1.0) {
     return g_strdup(hex);
   }
   return g_strdup_printf("alpha(%s, %g)", hex, alpha);
 }
 
-void seekey_cli_extract_config_path(SeekeyConfig *config, int argc,
-                                    char **argv) {
-  for (int i = 1; i < argc; i++) {
-    if (g_strcmp0(argv[i], "--config") == 0 && i + 1 < argc) {
-      g_strlcpy(config->config_path, argv[i + 1], sizeof(config->config_path));
-      return;
-    }
+static gboolean copy_path_option(const char *option, const char *value,
+                                 char *target, gsize target_size,
+                                 GError **error) {
+  if (value == NULL || value[0] == '\0' || value[0] == '-') {
+    g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                "%s requires a path value (prefix paths beginning with '-' "
+                "with ./)", option);
+    return FALSE;
   }
+  if (strlen(value) >= target_size) {
+    g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+                "%s path is too long (maximum %zu bytes)", option,
+                target_size - 1);
+    return FALSE;
+  }
+  g_strlcpy(target, value, target_size);
+  return TRUE;
 }
 
-void seekey_cli_extract_matugen_path(SeekeyConfig *config, int argc,
-                                     char **argv) {
+gboolean seekey_cli_extract_matugen_path(SeekeyConfig *config, int argc,
+                                         char **argv, GError **error) {
   for (int i = 1; i < argc; i++) {
-    if (g_strcmp0(argv[i], "--matugen") == 0 && i + 1 < argc) {
-      g_strlcpy(config->matugen_path, argv[i + 1],
-                sizeof(config->matugen_path));
-      return;
+    if (g_strcmp0(argv[i], "--matugen") == 0) {
+      if (!copy_path_option(
+              "--matugen", i + 1 < argc ? argv[i + 1] : NULL,
+              config->matugen_path, sizeof(config->matugen_path), error)) {
+        return FALSE;
+      }
+      i++;
     }
   }
+  return TRUE;
 }
 
 gboolean seekey_config_resolve_path(SeekeyConfig *config, int argc, char **argv,
                                     GError **error) {
-  (void)error;
-
   /* 1. --config wins. */
+  gboolean explicit_config = FALSE;
   for (int i = 1; i < argc; i++) {
-    if (g_strcmp0(argv[i], "--config") == 0 && i + 1 < argc) {
-      g_strlcpy(config->config_path, argv[i + 1], sizeof(config->config_path));
-      return TRUE;
+    if (g_strcmp0(argv[i], "--config") == 0) {
+      if (!copy_path_option(
+              "--config", i + 1 < argc ? argv[i + 1] : NULL,
+              config->config_path, sizeof(config->config_path), error)) {
+        return FALSE;
+      }
+      explicit_config = TRUE;
+      i++;
     }
   }
+  if (explicit_config) return TRUE;
 
   /* 2. --xdg flag forces XDG path even if a project file exists. */
   if (config->xdg_config) {
     char *xdg =
         g_build_filename(g_get_user_config_dir(), "seekey", "config.ini", NULL);
-    g_strlcpy(config->config_path, xdg, sizeof(config->config_path));
+    gboolean copied = copy_path_option(
+        "resolved config", xdg, config->config_path,
+        sizeof(config->config_path), error);
     g_free(xdg);
-    return TRUE;
+    return copied;
   }
 
   /* 3. Project directory. */
@@ -334,9 +370,11 @@ gboolean seekey_config_resolve_path(SeekeyConfig *config, int argc, char **argv,
   char *project = g_build_filename(cwd, "seekey.ini", NULL);
   g_free(cwd);
   if (g_file_test(project, G_FILE_TEST_EXISTS)) {
-    g_strlcpy(config->config_path, project, sizeof(config->config_path));
+    gboolean copied = copy_path_option(
+        "resolved config", project, config->config_path,
+        sizeof(config->config_path), error);
     g_free(project);
-    return TRUE;
+    return copied;
   }
   g_free(project);
 
@@ -482,9 +520,17 @@ static void keyfile_get_string_value(GKeyFile *key_file, const char *group,
 }
 
 static gboolean seekey_config_load_impl(SeekeyConfig *config, GError **error) {
-  if (config->config_path[0] == '\0' ||
-      !g_file_test(config->config_path, G_FILE_TEST_EXISTS)) {
-    return TRUE;
+  if (config->config_path[0] == '\0') {
+    return seekey_config_resolve_matugen(config, error);
+  }
+  if (!g_file_test(config->config_path, G_FILE_TEST_EXISTS)) {
+    return seekey_config_resolve_matugen(config, error);
+  }
+  if (!g_file_test(config->config_path, G_FILE_TEST_IS_REGULAR)) {
+    g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+                "config path is not a regular file: %s",
+                config->config_path);
+    return FALSE;
   }
 
   GKeyFile *key_file = g_key_file_new();
@@ -643,61 +689,7 @@ static gboolean seekey_config_load_impl(SeekeyConfig *config, GError **error) {
     return FALSE;
   }
 
-  /* Resolve @matugen:<role> references in string fields. */
-  {
-    char *mpath = NULL;
-    if (config->matugen_path[0] != '\0') {
-      mpath = g_strdup(config->matugen_path);
-    } else {
-      mpath = seekey_matugen_resolve_path(0, NULL);
-    }
-    gboolean explicit_path = config->matugen_path[0] != '\0';
-    if (explicit_path &&
-        (mpath == NULL || !g_file_test(mpath, G_FILE_TEST_EXISTS))) {
-      g_set_error(error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                  "matugen file not found: %s", mpath != NULL ? mpath : "");
-      g_free(mpath);
-      return FALSE;
-    }
-    if (mpath != NULL && g_file_test(mpath, G_FILE_TEST_EXISTS)) {
-      GError *merr = NULL;
-      GHashTable *colors = seekey_matugen_load(mpath, &merr);
-      if (colors != NULL) {
-        struct {
-          char *target;
-          gsize size;
-        } strs[] = {
-            {config->foreground, sizeof(config->foreground)},
-            {config->background, sizeof(config->background)},
-            {config->border_color, sizeof(config->border_color)},
-            {config->shadow, sizeof(config->shadow)},
-            {config->placeholder_foreground,
-             sizeof(config->placeholder_foreground)},
-            {config->placeholder_background,
-             sizeof(config->placeholder_background)},
-            {config->placeholder_border_color,
-             sizeof(config->placeholder_border_color)},
-        };
-        for (gsize i = 0; i < G_N_ELEMENTS(strs); i++) {
-          char *resolved = seekey_matugen_resolve_value(strs[i].target, colors);
-          g_strlcpy(strs[i].target, resolved, strs[i].size);
-          g_free(resolved);
-        }
-        g_hash_table_destroy(colors);
-      } else {
-        if (explicit_path) {
-          g_propagate_error(error, merr);
-          g_free(mpath);
-          return FALSE;
-        }
-        g_printerr("seekey: matugen load failed: %s\n",
-                   merr ? merr->message : "(unknown)");
-        g_clear_error(&merr);
-      }
-    }
-    g_free(mpath);
-  }
-  replace_unresolved_matugen_values(config);
+  if (!seekey_config_resolve_matugen(config, error)) return FALSE;
   if (!valid_choice(config->align, "left", "center", "right")) {
     g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
                 "[style] align must be one of: left, center, right");
@@ -777,6 +769,11 @@ static void keyfile_set_config(GKeyFile *key_file, const SeekeyConfig *config) {
   g_key_file_set_boolean(key_file, "general", "show-mouse", config->show_mouse);
   g_key_file_set_string(key_file, "general", "theme", config->theme);
 
+  /* These keys were documented under [style] through 0.2.0. Saving migrates
+   * them to their canonical [general] location without retaining duplicates. */
+  g_key_file_remove_key(key_file, "style", "window-width", NULL);
+  g_key_file_remove_key(key_file, "style", "window-height", NULL);
+
   g_key_file_set_string(key_file, "style", "align", config->align);
   g_key_file_set_string(key_file, "style", "disappear", config->disappear);
   g_key_file_set_integer(key_file, "style", "spacing",
@@ -816,6 +813,7 @@ static void keyfile_set_config(GKeyFile *key_file, const SeekeyConfig *config) {
                         config->placeholder_border_color);
 
   /* --- [icons] section --- */
+  g_key_file_remove_group(key_file, "icons", NULL);
   for (guint i = 0; i < config->icon_override_count; i++) {
     g_key_file_set_string(key_file, "icons", config->icon_overrides[i].name,
                           config->icon_overrides[i].icon);
@@ -824,12 +822,8 @@ static void keyfile_set_config(GKeyFile *key_file, const SeekeyConfig *config) {
 
 static void keyfile_restore_matugen_references(GKeyFile *key_file,
                                                const SeekeyConfig *config,
-                                               char **raw_values) {
-  static const char *keys[] = {
-      "foreground", "background", "border-color", "shadow",
-      "placeholder-foreground", "placeholder-background",
-      "placeholder-border-color",
-  };
+                                               char **raw_values,
+                                               gboolean theme_unchanged) {
   const char *current[] = {
       config->foreground, config->background, config->border_color,
       config->shadow, config->placeholder_foreground,
@@ -845,22 +839,8 @@ static void keyfile_restore_matugen_references(GKeyFile *key_file,
       fallback.shadow, fallback.placeholder_foreground,
       fallback.placeholder_background, fallback.placeholder_border_color,
   };
-  const SeekeyThemePreset *preset =
-      g_strcmp0(config->theme, "matugen") == 0
-          ? seekey_config_theme_lookup("matugen")
-          : NULL;
-  const char *preset_values[] = {
-      preset != NULL ? preset->foreground : NULL,
-      preset != NULL ? preset->background : NULL,
-      preset != NULL ? preset->border_color : NULL,
-      preset != NULL ? preset->shadow : NULL,
-      preset != NULL ? preset->placeholder_foreground : NULL,
-      preset != NULL ? preset->placeholder_background : NULL,
-      preset != NULL ? preset->placeholder_border_color : NULL,
-  };
-
-  gboolean needs_colors = preset != NULL;
-  for (gsize i = 0; i < G_N_ELEMENTS(keys); i++) {
+  gboolean needs_colors = FALSE;
+  for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
     if (raw_values[i] != NULL &&
         g_str_has_prefix(raw_values[i], "@matugen:")) {
       needs_colors = TRUE;
@@ -877,20 +857,138 @@ static void keyfile_restore_matugen_references(GKeyFile *key_file,
     colors = seekey_matugen_load(path, NULL);
   }
 
-  for (gsize i = 0; i < G_N_ELEMENTS(keys); i++) {
-    const char *raw = raw_values[i] != NULL ? raw_values[i] : preset_values[i];
+  for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
+    const char *raw = raw_values[i];
     if (raw == NULL || !g_str_has_prefix(raw, "@matugen:")) continue;
     char *resolved = seekey_matugen_resolve_value(raw, colors);
+    gboolean unresolved = g_strcmp0(resolved, raw) == 0;
     if (g_strcmp0(current[i], raw) == 0 ||
         g_strcmp0(current[i], resolved) == 0 ||
-        g_strcmp0(current[i], fallback_values[i]) == 0) {
-      g_key_file_set_string(key_file, "style", keys[i], raw);
+        (theme_unchanged && unresolved &&
+         g_strcmp0(current[i], fallback_values[i]) == 0)) {
+      g_key_file_set_string(key_file, "style", STYLE_THEME_KEYS[i], raw);
     }
     g_free(resolved);
   }
 
   g_clear_pointer(&colors, g_hash_table_destroy);
   g_free(path);
+}
+
+static void config_resolve_matugen_values(SeekeyConfig *config,
+                                          GHashTable *colors) {
+  struct {
+    char *value;
+    gsize size;
+  } fields[] = {
+      {config->foreground, sizeof(config->foreground)},
+      {config->background, sizeof(config->background)},
+      {config->border_color, sizeof(config->border_color)},
+      {config->shadow, sizeof(config->shadow)},
+      {config->placeholder_foreground,
+       sizeof(config->placeholder_foreground)},
+      {config->placeholder_background,
+       sizeof(config->placeholder_background)},
+      {config->placeholder_border_color,
+       sizeof(config->placeholder_border_color)},
+  };
+
+  for (gsize i = 0; i < G_N_ELEMENTS(fields); i++) {
+    char *resolved = seekey_matugen_resolve_value(fields[i].value, colors);
+    g_strlcpy(fields[i].value, resolved, fields[i].size);
+    g_free(resolved);
+  }
+  replace_unresolved_matugen_values(config);
+}
+
+gboolean seekey_config_resolve_matugen(SeekeyConfig *config, GError **error) {
+  g_return_val_if_fail(config != NULL, FALSE);
+
+  const char *values[] = {
+      config->foreground, config->background, config->border_color,
+      config->shadow, config->placeholder_foreground,
+      config->placeholder_background, config->placeholder_border_color,
+  };
+  gboolean needs_resolution = FALSE;
+  for (gsize i = 0; i < G_N_ELEMENTS(values); i++) {
+    if (g_str_has_prefix(values[i], "@matugen:")) {
+      needs_resolution = TRUE;
+      break;
+    }
+  }
+
+  gboolean explicit_path = config->matugen_path[0] != '\0';
+  if (!needs_resolution && !explicit_path) return TRUE;
+
+  char *path = explicit_path ? g_strdup(config->matugen_path)
+                             : seekey_matugen_resolve_path(0, NULL);
+  GHashTable *colors = NULL;
+  GError *load_error = NULL;
+  if (path != NULL && g_file_test(path, G_FILE_TEST_EXISTS)) {
+    colors = seekey_matugen_load(path, &load_error);
+  } else if (explicit_path) {
+    g_set_error(error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                "matugen file not found: %s", path != NULL ? path : "");
+    g_free(path);
+    return FALSE;
+  }
+
+  if (colors == NULL && load_error != NULL) {
+    if (explicit_path) {
+      g_propagate_error(error, load_error);
+      g_free(path);
+      return FALSE;
+    }
+    g_printerr("seekey: matugen load failed: %s\n", load_error->message);
+    g_clear_error(&load_error);
+  }
+
+  if (needs_resolution) config_resolve_matugen_values(config, colors);
+  g_clear_pointer(&colors, g_hash_table_destroy);
+  g_free(path);
+  return TRUE;
+}
+
+static void keyfile_preserve_theme_inheritance(GKeyFile *key_file,
+                                               const SeekeyConfig *config,
+                                               char **raw_values,
+                                               gboolean existing_file) {
+  if (!existing_file) return;
+
+  SeekeyConfig themed;
+  seekey_config_set_defaults(&themed);
+  g_strlcpy(themed.theme, config->theme, sizeof(themed.theme));
+  if (!seekey_config_apply_theme(&themed, config->theme)) return;
+
+  if (g_strcmp0(config->theme, "matugen") == 0) {
+    char *path = config->matugen_path[0] != '\0'
+                     ? g_strdup(config->matugen_path)
+                     : seekey_matugen_resolve_path(0, NULL);
+    GHashTable *colors = NULL;
+    if (path != NULL && g_file_test(path, G_FILE_TEST_EXISTS)) {
+      colors = seekey_matugen_load(path, NULL);
+    }
+    config_resolve_matugen_values(&themed, colors);
+    g_clear_pointer(&colors, g_hash_table_destroy);
+    g_free(path);
+  }
+
+  const char *current[] = {
+      config->foreground, config->background, config->border_color,
+      config->shadow, config->placeholder_foreground,
+      config->placeholder_background, config->placeholder_border_color,
+  };
+  const char *inherited[] = {
+      themed.foreground, themed.background, themed.border_color,
+      themed.shadow, themed.placeholder_foreground,
+      themed.placeholder_background, themed.placeholder_border_color,
+  };
+  for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
+    if (raw_values[i] == NULL &&
+        g_strcmp0(current[i], inherited[i]) == 0) {
+      g_key_file_remove_key(key_file, "style", STYLE_THEME_KEYS[i], NULL);
+    }
+  }
 }
 
 gboolean seekey_config_save(const SeekeyConfig *config, GError **error) {
@@ -900,14 +998,20 @@ gboolean seekey_config_save(const SeekeyConfig *config, GError **error) {
     return FALSE;
   }
 
-  static const char *matugen_keys[] = {
-      "foreground", "background", "border-color", "shadow",
-      "placeholder-foreground", "placeholder-background",
-      "placeholder-border-color",
-  };
-  char *raw_matugen[G_N_ELEMENTS(matugen_keys)] = {0};
+  char *raw_style_values[G_N_ELEMENTS(STYLE_THEME_KEYS)] = {0};
+  char *raw_theme = NULL;
   GKeyFile *key_file = g_key_file_new();
-  if (g_file_test(config->config_path, G_FILE_TEST_EXISTS) &&
+  gboolean existing_file =
+      g_file_test(config->config_path, G_FILE_TEST_EXISTS);
+  if (existing_file &&
+      !g_file_test(config->config_path, G_FILE_TEST_IS_REGULAR)) {
+    g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+                "config path is not a regular file: %s",
+                config->config_path);
+    g_key_file_unref(key_file);
+    return FALSE;
+  }
+  if (existing_file &&
       !g_key_file_load_from_file(key_file, config->config_path,
                                  G_KEY_FILE_KEEP_COMMENTS |
                                      G_KEY_FILE_KEEP_TRANSLATIONS,
@@ -915,15 +1019,22 @@ gboolean seekey_config_save(const SeekeyConfig *config, GError **error) {
     g_key_file_unref(key_file);
     return FALSE;
   }
-  for (gsize i = 0; i < G_N_ELEMENTS(matugen_keys); i++) {
-    raw_matugen[i] = g_key_file_get_string(key_file, "style",
-                                           matugen_keys[i], NULL);
+  for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
+    raw_style_values[i] = g_key_file_get_string(
+        key_file, "style", STYLE_THEME_KEYS[i], NULL);
   }
+  raw_theme = g_key_file_get_string(key_file, "general", "theme", NULL);
+  gboolean theme_unchanged =
+      g_strcmp0(raw_theme != NULL ? raw_theme : "default", config->theme) == 0;
   keyfile_set_config(key_file, config);
-  keyfile_restore_matugen_references(key_file, config, raw_matugen);
-  for (gsize i = 0; i < G_N_ELEMENTS(raw_matugen); i++) {
-    g_free(raw_matugen[i]);
+  keyfile_restore_matugen_references(key_file, config, raw_style_values,
+                                     theme_unchanged);
+  keyfile_preserve_theme_inheritance(key_file, config, raw_style_values,
+                                     existing_file);
+  for (gsize i = 0; i < G_N_ELEMENTS(raw_style_values); i++) {
+    g_free(raw_style_values[i]);
   }
+  g_free(raw_theme);
 
   gsize length = 0;
   char *data = g_key_file_to_data(key_file, &length, error);
@@ -977,8 +1088,14 @@ gboolean seekey_config_print(const SeekeyConfig *config, GError **error) {
     return FALSE;
   }
 
-  const char *source = config->config_path[0] ? "file" : "default";
-  g_print("# source: %s\n# path: %s\n%s", source, config->config_path, data);
+  const char *source =
+      config->config_path[0] != '\0' &&
+              g_file_test(config->config_path, G_FILE_TEST_IS_REGULAR)
+          ? "file"
+          : "default";
+  const char *path =
+      config->config_path[0] != '\0' ? config->config_path : "(none)";
+  g_print("# source: %s\n# path: %s\n%s", source, path, data);
   g_free(data);
   return TRUE;
 }
@@ -1110,19 +1227,19 @@ gboolean seekey_parse_args(SeekeyConfig *config, int *argc, char ***argv,
     } else if (g_strcmp0(arg, "--xdg") == 0) {
       config->xdg_config = TRUE;
     } else if (g_strcmp0(arg, "--matugen") == 0) {
-      if (++i >= *argc) {
-        g_set_error_literal(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
-                            "--matugen requires a path");
+      i++;
+      if (!copy_path_option("--matugen", i < *argc ? (*argv)[i] : NULL,
+                            config->matugen_path,
+                            sizeof(config->matugen_path), error)) {
         return FALSE;
       }
-      g_strlcpy(config->matugen_path, (*argv)[i], sizeof(config->matugen_path));
     } else if (g_strcmp0(arg, "--config") == 0) {
-      if (++i >= *argc) {
-        g_set_error_literal(error, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
-                            "--config requires a path");
+      i++;
+      if (!copy_path_option("--config", i < *argc ? (*argv)[i] : NULL,
+                            config->config_path,
+                            sizeof(config->config_path), error)) {
         return FALSE;
       }
-      g_strlcpy(config->config_path, (*argv)[i], sizeof(config->config_path));
     } else if (g_strcmp0(arg, "--duration") == 0) {
       if (++i >= *argc || !parse_uint_arg("--duration", (*argv)[i], 100, 10000,
                                           &config->duration_ms, error)) {

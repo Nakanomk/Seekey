@@ -171,7 +171,10 @@ static gboolean tui_parse_css_color(const char *value, GdkRGBA *rgba)
             char *factor = g_strstrip(comma + 1);
             valid = gdk_rgba_parse(rgba, base) &&
                     tui_parse_unit_double(factor);
-            if (valid) rgba->alpha *= g_ascii_strtod(factor, NULL);
+            if (valid) {
+                double alpha_factor = g_ascii_strtod(factor, NULL);
+                rgba->alpha = (float)((double)rgba->alpha * alpha_factor);
+            }
         }
         g_free(inner);
     }
@@ -260,10 +263,16 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
 {
     static const char *LAYER_CHOICES[] = {"auto", "required", "off"};
     static const char *TYPING_DISPLAY_CHOICES[] = {"full", "masked", "off"};
-    static const char *THEME_CHOICES[] = {
-        "default", "nord", "dracula", "catppuccin",
-        "monokai", "light", "matugen",
-    };
+    static const char *theme_choices[32];
+    gsize theme_count = seekey_config_theme_count();
+    g_return_if_fail(theme_count <= G_N_ELEMENTS(theme_choices));
+    for (gsize theme_index = 0; theme_index < theme_count; theme_index++) {
+        theme_choices[theme_index] =
+            seekey_config_theme_at(theme_index)->name;
+    }
+
+    SeekeyConfig defaults;
+    seekey_config_set_defaults(&defaults);
 
     TuiField *f = out;
     size_t i = 0;
@@ -275,7 +284,7 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
          f[i].type = TUI_UINT; f[i].group = (GROUP);                 \
          f[i].uint_target = &(config->TARGET);                       \
          f[i].min = (MIN); f[i].max = (MAX); f[i].step = (STEP);     \
-         f[i].default_uint = config->TARGET;                         \
+         f[i].default_uint = defaults.TARGET;                        \
          i++; } while (0)
 
 #define BOOL_FIELD(GROUP, LABEL, HELP, HINT, TARGET)                  \
@@ -284,35 +293,41 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
          f[i].input_hint = (HINT);                                   \
          f[i].type = TUI_BOOL; f[i].group = (GROUP);                 \
          f[i].bool_target = &(config->TARGET);                       \
-         f[i].default_bool = config->TARGET;                         \
+         f[i].default_bool = defaults.TARGET;                        \
          i++; } while (0)
 
-#define CHOICE_FIELD(GROUP, LABEL, HELP, HINT, TARGET, SZ, CHOICES, COUNT) \
+#define CHOICE_FIELD(GROUP, LABEL, HELP, HINT, TARGET, CHOICES, COUNT) \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
          f[i].type = TUI_CHOICE; f[i].group = (GROUP);               \
-         f[i].string_target = (TARGET); f[i].string_size = (SZ);     \
+         f[i].string_target = config->TARGET;                        \
+         f[i].string_size = sizeof(config->TARGET);                  \
          f[i].choices = (CHOICES); f[i].choice_count = (COUNT);      \
-         g_strlcpy(f[i].default_string, (TARGET), sizeof(f[i].default_string)); \
+         g_strlcpy(f[i].default_string, defaults.TARGET,              \
+                   sizeof(f[i].default_string));                     \
          i++; } while (0)
 
-#define STRING_FIELD(GROUP, LABEL, HELP, HINT, TARGET, SZ)            \
+#define STRING_FIELD(GROUP, LABEL, HELP, HINT, TARGET)                \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
          f[i].type = TUI_STRING; f[i].group = (GROUP);               \
-         f[i].string_target = (TARGET); f[i].string_size = (SZ);     \
-         g_strlcpy(f[i].default_string, (TARGET), sizeof(f[i].default_string)); \
+         f[i].string_target = config->TARGET;                        \
+         f[i].string_size = sizeof(config->TARGET);                  \
+         g_strlcpy(f[i].default_string, defaults.TARGET,              \
+                   sizeof(f[i].default_string));                     \
          i++; } while (0)
 
-#define COLOR_FIELD(GROUP, LABEL, HELP, HINT, TARGET, SZ)             \
+#define COLOR_FIELD(GROUP, LABEL, HELP, HINT, TARGET)                 \
     do { f[i] = (TuiField){0};                                       \
          f[i].label = (LABEL); f[i].help = (HELP);                   \
          f[i].input_hint = (HINT);                                   \
          f[i].type = TUI_COLOR; f[i].group = (GROUP);                \
-         f[i].string_target = (TARGET); f[i].string_size = (SZ);     \
-         g_strlcpy(f[i].default_string, (TARGET), sizeof(f[i].default_string)); \
+         f[i].string_target = config->TARGET;                        \
+         f[i].string_size = sizeof(config->TARGET);                  \
+         g_strlcpy(f[i].default_string, defaults.TARGET,              \
+                   sizeof(f[i].default_string));                     \
          i++; } while (0)
 
     /* --- General: timing, behaviour, layer-shell, theme --- */
@@ -328,20 +343,16 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
     CHOICE_FIELD(TUI_GROUP_GENERAL, "layer-shell",
                  "auto falls back to a window; required exits if unavailable.",
                  "pick: auto / required / off",
-                 config->layer_shell, sizeof(config->layer_shell),
-                 LAYER_CHOICES,
+                 layer_shell, LAYER_CHOICES,
                  (guint)(sizeof(LAYER_CHOICES) / sizeof(LAYER_CHOICES[0])));
     CHOICE_FIELD(TUI_GROUP_GENERAL, "theme",
                  "Color preset (overridable per key in Appearance).",
                  "pick a theme preset",
-                 config->theme, sizeof(config->theme),
-                 THEME_CHOICES,
-                 (guint)(sizeof(THEME_CHOICES) / sizeof(THEME_CHOICES[0])));
+                 theme, theme_choices, (guint)theme_count);
     CHOICE_FIELD(TUI_GROUP_GENERAL, "typing-display",
                  "Show typed text, replace it with one privacy label, or hide it.",
                  "pick: full / masked / off",
-                 config->typing_display, sizeof(config->typing_display),
-                 TYPING_DISPLAY_CHOICES,
+                 typing_display, TYPING_DISPLAY_CHOICES,
                  (guint)(sizeof(TYPING_DISPLAY_CHOICES) /
                          sizeof(TYPING_DISPLAY_CHOICES[0])));
 
@@ -355,13 +366,11 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
     /* --- Layout: alignment, spacing, padding, sizing --- */
     CHOICE_FIELD(TUI_GROUP_LAYOUT, "align", "Bubble row alignment.",
                  "pick: left / center / right",
-                 config->align, sizeof(config->align),
-                 ALIGN_CHOICES,
+                 align, ALIGN_CHOICES,
                  (guint)(sizeof(ALIGN_CHOICES) / sizeof(ALIGN_CHOICES[0])));
     CHOICE_FIELD(TUI_GROUP_LAYOUT, "disappear", "Bubble removal mode.",
                  "pick: instant / fade",
-                 config->disappear, sizeof(config->disappear),
-                 DISAPPEAR_CHOICES,
+                 disappear, DISAPPEAR_CHOICES,
                  (guint)(sizeof(DISAPPEAR_CHOICES) / sizeof(DISAPPEAR_CHOICES[0])));
 
     UINT_FIELD(TUI_GROUP_LAYOUT, "margin", "Bottom layer-shell margin.",
@@ -396,37 +405,34 @@ void tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config)
                "integer 100..1000", key_font_weight, 100, 1000, 100);
     STRING_FIELD(TUI_GROUP_APPEARANCE, "font-family", "Bubble font family.",
                  "inherit, or a font family such as JetBrains Mono",
-                 config->key_font_family, sizeof(config->key_font_family));
+                 key_font_family);
 
     COLOR_FIELD(TUI_GROUP_APPEARANCE, "foreground", "Key-bubble text color.",
                  "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
-                 config->foreground, sizeof(config->foreground));
+                 foreground);
     COLOR_FIELD(TUI_GROUP_APPEARANCE, "background", "Key-bubble background color.",
                  "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
-                 config->background, sizeof(config->background));
+                 background);
     COLOR_FIELD(TUI_GROUP_APPEARANCE, "border-color", "Key-bubble border color.",
                  "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
-                 config->border_color, sizeof(config->border_color));
+                 border_color);
     STRING_FIELD(TUI_GROUP_APPEARANCE, "shadow", "GTK CSS box-shadow.",
                  "GTK CSS box-shadow, e.g. '0 7px 22px rgba(0,0,0,0.30)'",
-                 config->shadow, sizeof(config->shadow));
+                 shadow);
 
     /* --- Placeholder: idle bubble text + colors --- */
     STRING_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-text", "Startup placeholder text.",
                  "Any short text shown when no keys are pressed",
-                 config->placeholder_text, sizeof(config->placeholder_text));
+                 placeholder_text);
     COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-foreground", "Placeholder text color.",
                  "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
-                config->placeholder_foreground,
-                sizeof(config->placeholder_foreground));
+                placeholder_foreground);
     COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-background", "Placeholder background.",
                  "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
-                config->placeholder_background,
-                sizeof(config->placeholder_background));
+                placeholder_background);
     COLOR_FIELD(TUI_GROUP_PLACEHOLDER, "placeholder-border-color", "Placeholder border color.",
                  "GTK CSS: #rrggbb, named, rgba(...), alpha(...), or @matugen:role",
-                config->placeholder_border_color,
-                sizeof(config->placeholder_border_color));
+                placeholder_border_color);
 
 #undef UINT_FIELD
 #undef BOOL_FIELD
@@ -651,11 +657,11 @@ static gboolean tui_choice_picker(TuiState *st, TuiField *field)
             sel = (sel + 1) % (int)count; break;
         case '\n': case '\r': case KEY_ENTER:
             g_strlcpy(field->string_target, choices[sel], field->string_size);
-            g_strlcpy(field->default_string, choices[sel],
-                      sizeof(field->default_string));
             picked = TRUE; done = TRUE; break;
         case 27: case 'q':
             done = TRUE; break;
+        default:
+            break;
         }
     }
     if (picked) {
@@ -666,14 +672,8 @@ static gboolean tui_choice_picker(TuiState *st, TuiField *field)
 
 static gboolean tui_theme_picker(TuiState *st, SeekeyConfig *config)
 {
-    /* Keep these in the same order as THEME_PRESETS in config.c. The
-     * swatches use opaque base colors because ncurses cannot preview GTK's
-     * alpha(...) syntax directly. */
-    static const char *THEME_FG[]   = {"#f7f7f2","#1a1a2e","#eceff4","#f8f8f2","#f5e0dc","#f8f8f2"};
-    static const char *THEME_BG[]   = {"#111318","#fafafa","#5e81ac","#6272a4","#585b70","#75715e"};
-    static const char *THEME_BD[]   = {"#ffffff","#cccccc","#88c0d0","#bd93f9","#cba6f7","#a6e22e"};
     gsize n = seekey_config_theme_count();
-    if (n == 0 || n > G_N_ELEMENTS(THEME_FG)) return FALSE;
+    if (n == 0) return FALSE;
     int sel = 0;
     for (gsize i = 0; i < n; i++) {
         if (g_strcmp0(config->theme, seekey_config_theme_at(i)->name) == 0) {
@@ -698,14 +698,24 @@ static gboolean tui_theme_picker(TuiState *st, SeekeyConfig *config)
         tui_draw_box(top, left, box_h, box_w, "Themes");
 
         for (gsize i = 0; i < n; i++) {
+            const SeekeyThemePreset *preset = seekey_config_theme_at(i);
             int y = top + 2 + (int)i * 2;
             if ((int)i == sel) attron(A_REVERSE | A_BOLD);
             mvprintw(y, left + 3, "%c %-12s", (int)i == sel ? '>' : ' ',
-                     seekey_config_theme_at(i)->name);
+                     preset->name);
             if ((int)i == sel) attroff(A_REVERSE | A_BOLD);
-            tui_draw_color_swatch(y + 1, left + 4,  THEME_FG[i], 4);
-            tui_draw_color_swatch(y + 1, left + 9,  THEME_BG[i], 4);
-            tui_draw_color_swatch(y + 1, left + 14, THEME_BD[i], 4);
+            const char *foreground = preset->foreground;
+            const char *background = preset->background;
+            const char *border = preset->border_color;
+            if (g_strcmp0(preset->name, "matugen") == 0 &&
+                g_strcmp0(config->theme, "matugen") == 0) {
+                foreground = config->foreground;
+                background = config->background;
+                border = config->border_color;
+            }
+            tui_draw_color_swatch(y + 1, left + 4, foreground, 4);
+            tui_draw_color_swatch(y + 1, left + 9, background, 4);
+            tui_draw_color_swatch(y + 1, left + 14, border, 4);
             mvprintw(y + 1, left + 19, "fg / bg / border");
         }
         refresh();
@@ -719,19 +729,13 @@ static gboolean tui_theme_picker(TuiState *st, SeekeyConfig *config)
             const char *name = seekey_config_theme_at(sel)->name;
             g_strlcpy(config->theme, name, sizeof(config->theme));
             seekey_config_apply_theme(config, name);
-            /* Resync the theme field's default_string. */
-            for (size_t j = 0; j < st->field_count; j++) {
-                if (g_strcmp0(st->fields[j].label, "theme") == 0) {
-                    g_strlcpy(st->fields[j].default_string, name,
-                              sizeof(st->fields[j].default_string));
-                    break;
-                }
-            }
             picked = TRUE; done = TRUE;
             break;
         }
         case 27: case 'q':
             done = TRUE; break;
+        default:
+            break;
         }
     }
     if (picked) st->dirty = TRUE;
@@ -815,8 +819,6 @@ static gboolean tui_color_picker(TuiState *st, TuiField *field)
                 if (tui_color_value_valid(new_color)) {
                     g_strlcpy(field->string_target, new_color,
                               field->string_size);
-                    g_strlcpy(field->default_string, new_color,
-                              sizeof(field->default_string));
                     picked = TRUE;
                     done = TRUE;
                 } else {
@@ -830,12 +832,12 @@ static gboolean tui_color_picker(TuiState *st, TuiField *field)
         case '\n': case '\r': case KEY_ENTER:
             g_strlcpy(field->string_target, TUI_PALETTE[cur].hex,
                       field->string_size);
-            g_strlcpy(field->default_string, TUI_PALETTE[cur].hex,
-                      sizeof(field->default_string));
             picked = TRUE; done = TRUE;
             break;
         case 27: case 'q':
             done = TRUE; break;
+        default:
+            break;
         }
     }
     if (picked) st->dirty = TRUE;
@@ -1049,6 +1051,12 @@ static gboolean tui_save(TuiState *st, GError **error)
         /* Default to <cwd>/seekey.ini without prompting. The user can
          * still pick a different path with capital S. */
         char *path = seekey_default_save_path();
+        if (strlen(path) >= sizeof(st->config->config_path)) {
+            g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FILENAME_TOO_LONG,
+                                "default config path is too long");
+            g_free(path);
+            return FALSE;
+        }
         g_strlcpy(st->config->config_path, path,
                   sizeof(st->config->config_path));
         g_free(path);
@@ -1071,7 +1079,7 @@ static void tui_reload(TuiState *st)
         g_clear_error(&err);
         return;
     }
-    /* Rebuild fields to update defaults. */
+    /* Rebuild fields after the transactional config replacement. */
     tui_build_fields(st->fields, &st->field_count, st->config);
     st->dirty = FALSE;
     tui_set_status(st, "Reloaded from %s", st->config->config_path);
@@ -1244,8 +1252,6 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
                                       new_val, sizeof(new_val),
                                       f->string_target)) {
                     g_strlcpy(f->string_target, new_val, f->string_size);
-                    g_strlcpy(f->default_string, new_val,
-                              sizeof(f->default_string));
                     st.dirty = TRUE;
                 }
                 break;
@@ -1255,7 +1261,6 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
                 if (tui_prompt_uint(f->label, f->min, f->max,
                                     *f->uint_target, &new_val)) {
                     *f->uint_target = new_val;
-                    f->default_uint = new_val;
                     st.dirty = TRUE;
                 }
                 break;
@@ -1309,6 +1314,8 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
             st.running = FALSE;
             break;
         }
+        default:
+            break;
         }
     }
 done:

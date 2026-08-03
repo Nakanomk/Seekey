@@ -1,6 +1,7 @@
 #include "seekey.h"
 #include "config.h"
 #include "gui.h"
+#include "runtime_lock.h"
 #include "style.h"
 #include "tui.h"
 #include "window_state.h"
@@ -29,9 +30,12 @@ typedef struct {
     guint last_key_code;
     guint64 last_modifier_mask;
     SeekeyInput *input;
+    SeekeyRuntimeLock *runtime_lock;
+    SeekeyRuntimeLock *preview_lock;
     SeekeyConfig config;
     guint next_id;
     gboolean has_seen_input;
+    int exit_status;
 } AppState;
 
 typedef struct {
@@ -164,6 +168,11 @@ static gboolean remove_typing_bubble(gpointer data)
         next->widget = g_object_ref(timeout->widget);
         next->fade_phase = TRUE;
         gtk_widget_add_css_class(timeout->widget, "fading");
+        if (state->typing_label == timeout->widget) {
+            cancel_active_typing_idle_timeout(state);
+            clear_typing_group(state);
+            state->typing_remove_timeout_id = 0;
+        }
         g_timeout_add_full(G_PRIORITY_DEFAULT,
                            state->config.fade_ms,
                            remove_typing_bubble,
@@ -371,6 +380,8 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
 {
     AppState *state = user_data;
     const char *typed = NULL;
+
+    if (state->window == NULL || state->box == NULL) return;
 
     if (!state->has_seen_input) {
         state->has_seen_input = TRUE;
@@ -588,7 +599,7 @@ static void detect_compositor(void)
     };
 
     for (gsize i = 0; i < G_N_ELEMENTS(hints); i++) {
-        if (g_strstr_len(desktop, -1, hints[i].id) != NULL) {
+        if (g_strstr_len(name, -1, hints[i].id) != NULL) {
             g_print("%s\n", _(hints[i].hint));
             break;
         }
@@ -656,12 +667,16 @@ static void activate(GtkApplication *app, gpointer user_data)
     GError *layer_error = NULL;
     if (!seekey_layer_shell_try_init(GTK_WINDOW(window), &state->config,
                                       monitor, &layer_error)) {
-        if (g_strcmp0(state->config.layer_shell, "required") == 0) {
+        if (g_strcmp0(state->config.layer_shell, "required") == 0 &&
+            !state->config.preview_child) {
             g_printerr(_("seekey: layer-shell required but unavailable: %s\n"),
                        layer_error->message);
             g_printerr(_("seekey: install gtk4-layer-shell and use a compositor that supports wlr-layer-shell.\n"));
             g_clear_error(&layer_error);
-            exit(2);
+            state->exit_status = 2;
+            gtk_window_destroy(GTK_WINDOW(window));
+            g_application_quit(G_APPLICATION(app));
+            return;
         }
         g_printerr(_("seekey: using fallback window: %s\n"), layer_error->message);
         g_printerr(_("seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
@@ -715,7 +730,12 @@ static void activate(GtkApplication *app, gpointer user_data)
             seekey_input_new(&state->config, on_key_event, state, &input_error);
         if (state->input == NULL) {
             g_printerr(_("seekey: %s\n"), input_error->message);
-            if (!g_error_matches(input_error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
+            if (g_error_matches(input_error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
+                g_clear_error(&input_error);
+                gtk_window_destroy(GTK_WINDOW(window));
+                g_application_quit(G_APPLICATION(app));
+                return;
+            } else {
                 g_printerr(_("seekey: grant read access to /dev/input/event* or run a quick test as root.\n"));
             }
             g_clear_error(&input_error);
@@ -766,6 +786,7 @@ static void shutdown_app(GApplication *app, gpointer user_data)
     cancel_active_typing_remove_timeout(state);
     cancel_active_typing_idle_timeout(state);
     clear_typing_group(state);
+    state->box = NULL;
     seekey_input_free(state->input);
     state->input = NULL;
 }
@@ -790,18 +811,40 @@ int main(int argc, char **argv)
 
     AppState state = {0};
     seekey_config_set_defaults(&state.config);
+    GError *error = NULL;
 
     /* If user explicitly says --init-config --xdg, pre-set path so init
      * writes to ~/.config/seekey/config.ini. */
     if (seekey_cli_has_flag(argc, argv, "--xdg")) {
         state.config.xdg_config = TRUE;
     }
-    seekey_cli_extract_matugen_path(&state.config, argc, argv);
+    if (!seekey_cli_extract_matugen_path(&state.config, argc, argv, &error)) {
+        g_printerr("seekey: %s\n", error->message);
+        g_clear_error(&error);
+        return 2;
+    }
 
-    GError *error = NULL;
     if (!seekey_config_resolve_path(&state.config, argc, argv, &error)) {
         g_printerr("seekey: %s\n", error->message);
         g_clear_error(&error);
+        return 2;
+    }
+
+    gboolean explicit_config =
+        seekey_cli_has_flag(argc, argv, "--config");
+    gboolean initializing =
+        seekey_cli_has_flag(argc, argv, "--init-config");
+    gboolean inspecting =
+        seekey_cli_has_flag(argc, argv, "--print-config") ||
+        seekey_cli_has_flag(argc, argv, "--validate-config");
+    gboolean editing =
+        !inspecting &&
+        (seekey_cli_has_flag(argc, argv, "--config-tui") ||
+         seekey_cli_has_flag(argc, argv, "--config-gui"));
+    if (explicit_config && !initializing && !editing &&
+        !g_file_test(state.config.config_path, G_FILE_TEST_EXISTS)) {
+        g_printerr(_("seekey: config file not found: %s\n"),
+                   state.config.config_path);
         return 2;
     }
 
@@ -810,7 +853,13 @@ int main(int argc, char **argv)
     if (seekey_cli_has_flag(argc, argv, "--init-config") &&
         state.config.config_path[0] == '\0') {
         char *p = seekey_default_save_path();
-        g_strlcpy(state.config.config_path, p, sizeof(state.config.config_path));
+        if (g_strlcpy(state.config.config_path, p,
+                      sizeof(state.config.config_path)) >=
+            sizeof(state.config.config_path)) {
+            g_printerr("seekey: default config path is too long\n");
+            g_free(p);
+            return 2;
+        }
         g_free(p);
     }
 
@@ -858,6 +907,11 @@ int main(int argc, char **argv)
     }
 
     if (state.config.validate_config) {
+        if (state.config.config_path[0] == '\0' ||
+            !g_file_test(state.config.config_path, G_FILE_TEST_EXISTS)) {
+            g_printerr(_("seekey: no config file to validate\n"));
+            return 2;
+        }
         if (!seekey_config_validate(&state.config, &error)) {
             g_printerr(_("seekey: %s\n"), error->message);
             g_clear_error(&error);
@@ -886,6 +940,47 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    /* CLI theme selection happens after file loading. Resolve references it
+     * introduced before constructing CSS for the real overlay. Config init
+     * and editors intentionally keep the references so future Matugen runs
+     * remain dynamic. */
+    if (!seekey_config_resolve_matugen(&state.config, &error)) {
+        g_printerr(_("seekey: %s\n"), error->message);
+        g_clear_error(&error);
+        return 2;
+    }
+
+    if (!state.config.preview_child) {
+        state.runtime_lock =
+            seekey_runtime_lock_acquire("seekey-overlay.lock", &error);
+        if (state.runtime_lock == NULL) {
+            if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
+                g_print(_("seekey: overlay is already running\n"));
+                g_clear_error(&error);
+                return 0;
+            }
+            g_printerr(_("seekey: %s\n"), error->message);
+            g_clear_error(&error);
+            return 2;
+        }
+
+        state.preview_lock =
+            seekey_runtime_lock_acquire("seekey-preview.lock", &error);
+        if (state.preview_lock == NULL) {
+            if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
+                g_print(_("seekey: a configuration preview is active; close "
+                          "the menu before starting the overlay\n"));
+                g_clear_error(&error);
+                seekey_runtime_lock_free(state.runtime_lock);
+                return 0;
+            }
+            g_printerr(_("seekey: %s\n"), error->message);
+            g_clear_error(&error);
+            seekey_runtime_lock_free(state.runtime_lock);
+            return 2;
+        }
+    }
+
     GtkApplication *app = gtk_application_new(
         state.config.preview_child ? NULL : "dev.seekey",
         state.config.preview_child ? G_APPLICATION_NON_UNIQUE
@@ -903,5 +998,7 @@ int main(int argc, char **argv)
     int app_argc = 1;
     int status = g_application_run(G_APPLICATION(app), app_argc, argv);
     g_object_unref(app);
-    return status;
+    seekey_runtime_lock_free(state.preview_lock);
+    seekey_runtime_lock_free(state.runtime_lock);
+    return state.exit_status != 0 ? state.exit_status : status;
 }

@@ -129,6 +129,11 @@ $(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/style.c sr
 
 check: $(TEST_BIN)
 	./$(TEST_BIN)
+	bash -n install.sh
+	msgfmt --check --check-accelerators=_ -o /dev/null po/zh_CN.po
+	@if command -v desktop-file-validate >/dev/null 2>&1; then \
+	    desktop-file-validate data/dev.seekey.desktop; \
+	fi
 
 clean:
 	rm -f $(TARGET) $(OBJ) $(TEST_BIN)

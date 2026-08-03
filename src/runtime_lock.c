@@ -84,6 +84,28 @@ SeekeyRuntimeLock *seekey_runtime_lock_acquire(const char *name,
   return lock;
 }
 
+gboolean seekey_runtime_lock_query(const char *name, gboolean *locked,
+                                   GError **error) {
+  g_return_val_if_fail(locked != NULL, FALSE);
+
+  *locked = FALSE;
+  GError *local_error = NULL;
+  SeekeyRuntimeLock *lock = seekey_runtime_lock_acquire(name, &local_error);
+  if (lock != NULL) {
+    seekey_runtime_lock_free(lock);
+    return TRUE;
+  }
+
+  if (g_error_matches(local_error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
+    *locked = TRUE;
+    g_clear_error(&local_error);
+    return TRUE;
+  }
+
+  g_propagate_error(error, local_error);
+  return FALSE;
+}
+
 const char *seekey_runtime_lock_path(const SeekeyRuntimeLock *lock) {
   return lock != NULL ? lock->path : NULL;
 }

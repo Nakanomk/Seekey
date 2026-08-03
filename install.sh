@@ -40,7 +40,7 @@ Options:
   --user            Install to \$HOME/.local (default)
   --system          Install to /usr/local (requires sudo)
   --no-input        Skip udev rule + input group setup
-  --force           Overwrite existing files
+  --force           Overwrite an existing Seekey udev rule
   --uninstall       Reverse a previous install
   --dry-run         Print what would be done, do nothing
   --no-deps         Don't try to install build dependencies
@@ -73,13 +73,17 @@ BINDIR="${PREFIX}/bin"
 DATADIR="${PREFIX}/share/seekey"
 APPLICATIONSDIR="${PREFIX}/share/applications"
 LOCALEDIR="${PREFIX}/share/locale"
-SUDO=""
+ROOT_CMD=()
+if (( EUID != 0 )); then
+    ROOT_CMD=(sudo)
+fi
+INSTALL_CMD=()
 if $SYSTEM_INSTALL; then
-    command -v sudo >/dev/null 2>&1 || {
+    if (( EUID != 0 )) && ! $DRY_RUN && ! command -v sudo >/dev/null 2>&1; then
         echo "sudo is required for --system" >&2
         exit 1
-    }
-    SUDO="sudo"
+    fi
+    INSTALL_CMD=("${ROOT_CMD[@]}")
 fi
 CURRENT_USER="${SUDO_USER:-${USER:-$(id -un)}}"
 
@@ -95,6 +99,12 @@ run() {
         printf '    $ %s\n' "$*"
     else
         "$@"
+    fi
+}
+
+require_root_tool() {
+    if (( EUID != 0 )) && ! $DRY_RUN && ! command -v sudo >/dev/null 2>&1; then
+        die "sudo is required for system package, udev, or group changes"
     fi
 }
 
@@ -124,38 +134,38 @@ log "Detected package manager: ${PM}"
 PM_INSTALL_DEPS_ARGS=()
 case "$PM" in
     pacman)
-        PM_INSTALL_DEPS_ARGS=(sudo pacman -S --needed --noconfirm
+        PM_INSTALL_DEPS_ARGS=(pacman -S --needed --noconfirm
                               gtk4 libevdev ncurses json-glib
                               gettext pkgconf gcc make)
         PM_PRESENT() { pacman -Qi "$1" >/dev/null 2>&1; }
         ;;
     dnf)
-        PM_INSTALL_DEPS_ARGS=(sudo dnf install -y
+        PM_INSTALL_DEPS_ARGS=(dnf install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel pkgconf-pkg-config
                               gettext gcc make)
         PM_PRESENT() { rpm -q "$1" >/dev/null 2>&1; }
         ;;
     apt)
-        PM_INSTALL_DEPS_ARGS=(sudo apt install -y
-                              libgtk-4-dev libevdev-dev libncursesw5-dev
+        PM_INSTALL_DEPS_ARGS=(apt install -y
+                              libgtk-4-dev libevdev-dev libncurses-dev
                               libjson-glib-dev gettext pkg-config build-essential)
         PM_PRESENT() { dpkg -s "$1" >/dev/null 2>&1; }
         ;;
     zypper)
-        PM_INSTALL_DEPS_ARGS=(sudo zypper install -y
+        PM_INSTALL_DEPS_ARGS=(zypper install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel gettext-tools pkg-config gcc make)
         PM_PRESENT() { rpm -q "$1" >/dev/null 2>&1; }
         ;;
     apk)
-        PM_INSTALL_DEPS_ARGS=(sudo apk add gtk4-dev libevdev-dev
+        PM_INSTALL_DEPS_ARGS=(apk add gtk4-dev libevdev-dev
                               ncurses-dev json-glib-dev pkgconf
                               gettext gcc make musl-dev)
         PM_PRESENT() { apk info -e "$1" >/dev/null 2>&1; }
         ;;
     xbps-install)
-        PM_INSTALL_DEPS_ARGS=(sudo xbps-install -y
+        PM_INSTALL_DEPS_ARGS=(xbps-install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel gettext pkg-config gcc make)
         PM_PRESENT() { xbps-query "$1" >/dev/null 2>&1; }
@@ -201,7 +211,8 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
         die "No known package manager. Install dependencies manually."
     fi
     log "Installing via ${PM}..."
-    run "${PM_INSTALL_DEPS_ARGS[@]}"
+    require_root_tool
+    run "${ROOT_CMD[@]}" "${PM_INSTALL_DEPS_ARGS[@]}"
     if ! $DRY_RUN; then
         MISSING=()
         while IFS= read -r line; do
@@ -244,17 +255,14 @@ print_compositor_hints() {
 
 do_uninstall() {
     log "Uninstalling seekey from ${PREFIX}"
-    run ${SUDO} rm -f "${BINDIR}/seekey"
-    run ${SUDO} rm -rf "${DATADIR}"
-    run ${SUDO} rm -f "${APPLICATIONSDIR}/dev.seekey.desktop"
+    run "${INSTALL_CMD[@]}" rm -f "${BINDIR}/seekey"
+    run "${INSTALL_CMD[@]}" rm -rf "${DATADIR}"
+    run "${INSTALL_CMD[@]}" rm -f "${APPLICATIONSDIR}/dev.seekey.desktop"
     local mo
     for mo in "${LOCALEDIR}"/*/LC_MESSAGES/seekey.mo; do
         [[ -f "${mo}" ]] || continue
-        run ${SUDO} rm -f "${mo}"
+        run "${INSTALL_CMD[@]}" rm -f "${mo}"
     done
-    if [[ -f "${HOME}/.config/autostart/seekey.desktop" ]]; then
-        run rm -f "${HOME}/.config/autostart/seekey.desktop"
-    fi
     if [[ -f /etc/udev/rules.d/99-seekey.rules ]]; then
         warn "Leaving /etc/udev/rules.d/99-seekey.rules in place"
         warn "  (remove it manually if you no longer need it: sudo rm /etc/udev/rules.d/99-seekey.rules)"
@@ -267,6 +275,7 @@ do_uninstall() {
 # ---------- udev rule + input group -----------------------------------
 
 install_udev_rule() {
+    require_root_tool
     local rule_path="/etc/udev/rules.d/99-seekey.rules"
     if [[ -f "${rule_path}" ]] && ! $FORCE; then
         log "udev rule already present at ${rule_path} (use --force to overwrite)"
@@ -276,24 +285,27 @@ install_udev_rule() {
 KERNEL=="event*", SUBSYSTEM=="input", GROUP="input", MODE="0660"'
     log "Installing udev rule to ${rule_path}"
     if $DRY_RUN; then
-        printf '    $ sudo tee %s >/dev/null <<< <heredoc>\n' "${rule_path}"
+        printf '    $ %stee %s >/dev/null <<< <rule>\n' \
+            "${ROOT_CMD:+sudo }" "${rule_path}"
     else
-        printf '%s\n' "${rule_content}" | sudo tee "${rule_path}" >/dev/null
+        printf '%s\n' "${rule_content}" | \
+            "${ROOT_CMD[@]}" tee "${rule_path}" >/dev/null
     fi
-    run sudo udevadm control --reload-rules
-    run sudo udevadm trigger
+    run "${ROOT_CMD[@]}" udevadm control --reload-rules
+    run "${ROOT_CMD[@]}" udevadm trigger
 }
 
 setup_input_group() {
+    require_root_tool
     if ! getent group input >/dev/null; then
         log "Creating 'input' group"
-        run sudo groupadd input
+        run "${ROOT_CMD[@]}" groupadd input
     fi
     if id -nG "${CURRENT_USER}" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
         ok "User ${CURRENT_USER} is already in the 'input' group"
     else
         log "Adding ${CURRENT_USER} to the 'input' group"
-        run sudo usermod -aG input "${CURRENT_USER}"
+        run "${ROOT_CMD[@]}" usermod -aG input "${CURRENT_USER}"
         warn "*** Log out and back in for the new group to take effect ***"
     fi
 }
@@ -309,17 +321,17 @@ build_seekey() {
 
 install_files() {
     log "Installing binary to ${BINDIR}/seekey"
-    run ${SUDO} install -Dm755 seekey "${BINDIR}/seekey"
+    run "${INSTALL_CMD[@]}" install -Dm755 seekey "${BINDIR}/seekey"
 
     if [[ -f seekey.ini.example ]]; then
         log "Installing example config to ${DATADIR}/seekey.ini.example"
-        run ${SUDO} install -Dm644 seekey.ini.example \
+        run "${INSTALL_CMD[@]}" install -Dm644 seekey.ini.example \
             "${DATADIR}/seekey.ini.example"
     fi
 
     if [[ -f data/dev.seekey.desktop ]]; then
         log "Installing desktop entry to ${APPLICATIONSDIR}/dev.seekey.desktop"
-        run ${SUDO} install -Dm644 data/dev.seekey.desktop \
+        run "${INSTALL_CMD[@]}" install -Dm644 data/dev.seekey.desktop \
             "${APPLICATIONSDIR}/dev.seekey.desktop"
     fi
 
@@ -329,7 +341,7 @@ install_files() {
         lang="${mo#locale/}"
         lang="${lang%%/*}"
         log "Installing ${lang} translation"
-        run ${SUDO} install -Dm644 "${mo}" \
+        run "${INSTALL_CMD[@]}" install -Dm644 "${mo}" \
             "${LOCALEDIR}/${lang}/LC_MESSAGES/seekey.mo"
     done
 

@@ -31,11 +31,31 @@ static void test_runtime_lock_is_exclusive_and_reusable(void) {
   g_free(path);
 }
 
+static void test_runtime_lock_query_tracks_owner(void) {
+  GError *error = NULL;
+  gboolean locked = TRUE;
+  TEST_ASSERT_TRUE(seekey_runtime_lock_query(lock_name, &locked, &error));
+  TEST_ASSERT_FALSE(locked);
+  TEST_ASSERT_NULL(error);
+
+  SeekeyRuntimeLock *owner = seekey_runtime_lock_acquire(lock_name, &error);
+  TEST_ASSERT_NOT_NULL(owner);
+  TEST_ASSERT_TRUE(seekey_runtime_lock_query(lock_name, &locked, &error));
+  TEST_ASSERT_TRUE(locked);
+  TEST_ASSERT_NULL(error);
+
+  seekey_runtime_lock_free(owner);
+  TEST_ASSERT_TRUE(seekey_runtime_lock_query(lock_name, &locked, &error));
+  TEST_ASSERT_FALSE(locked);
+  TEST_ASSERT_NULL(error);
+}
+
 int run_runtime_lock_tests(void) {
   g_snprintf(lock_name, sizeof(lock_name),
              "seekey-test-%u-%" G_GINT64_FORMAT ".lock", (guint)getpid(),
              g_get_monotonic_time());
   UNITY_BEGIN();
   RUN_TEST(test_runtime_lock_is_exclusive_and_reusable);
+  RUN_TEST(test_runtime_lock_query_tracks_owner);
   return UNITY_END();
 }

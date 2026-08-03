@@ -19,7 +19,7 @@ static void test_field_count_matches(void)
     TEST_ASSERT_EQUAL_size_t(TUI_FIELD_COUNT, count);
 }
 
-static void test_theme_choices_include_matugen(void)
+static void test_theme_choices_match_presets(void)
 {
     SeekeyConfig c;
     seekey_config_set_defaults(&c);
@@ -30,13 +30,43 @@ static void test_theme_choices_include_matugen(void)
     for (size_t i = 0; i < count; i++) {
         if (g_strcmp0(fields[i].label, "theme") != 0)
             continue;
+        TEST_ASSERT_EQUAL_UINT(seekey_config_theme_count(),
+                               fields[i].choice_count);
         for (guint j = 0; j < fields[i].choice_count; j++) {
-            if (g_strcmp0(fields[i].choices[j], "matugen") == 0)
-                return;
+            TEST_ASSERT_EQUAL_STRING(seekey_config_theme_at(j)->name,
+                                     fields[i].choices[j]);
         }
-        TEST_FAIL_MESSAGE("theme field does not include matugen");
+        return;
     }
     TEST_FAIL_MESSAGE("theme field not found");
+}
+
+static void test_built_fields_reset_to_hardcoded_defaults(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    c.duration_ms = 5000;
+    c.show_mouse = TRUE;
+    g_strlcpy(c.theme, "nord", sizeof(c.theme));
+    seekey_config_apply_theme(&c, c.theme);
+    g_strlcpy(c.placeholder_text, "Custom", sizeof(c.placeholder_text));
+
+    TuiField fields[TUI_FIELD_COUNT];
+    size_t count = 0;
+    tui_build_fields(fields, &count, &c);
+    for (size_t i = 0; i < count; i++) {
+        if (g_strcmp0(fields[i].label, "duration-ms") == 0 ||
+            g_strcmp0(fields[i].label, "show-mouse") == 0 ||
+            g_strcmp0(fields[i].label, "theme") == 0 ||
+            g_strcmp0(fields[i].label, "placeholder-text") == 0) {
+            tui_reset_field(&fields[i]);
+        }
+    }
+
+    TEST_ASSERT_EQUAL_UINT(1200, c.duration_ms);
+    TEST_ASSERT_FALSE(c.show_mouse);
+    TEST_ASSERT_EQUAL_STRING("default", c.theme);
+    TEST_ASSERT_EQUAL_STRING("Seekey", c.placeholder_text);
 }
 
 static void test_typing_display_choices(void)
@@ -391,7 +421,8 @@ int run_tui_tests(void)
 {
     UnityBegin("test_tui.c");
     RUN_TEST(test_field_count_matches);
-    RUN_TEST(test_theme_choices_include_matugen);
+    RUN_TEST(test_theme_choices_match_presets);
+    RUN_TEST(test_built_fields_reset_to_hardcoded_defaults);
     RUN_TEST(test_typing_display_choices);
     RUN_TEST(test_fields_have_valid_nonempty_groups);
     RUN_TEST(test_count_in_group_sums_to_total);

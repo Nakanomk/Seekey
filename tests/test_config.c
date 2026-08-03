@@ -46,6 +46,40 @@ static void test_resolve_path_cli_wins(void)
     TEST_ASSERT_NULL(err);
 }
 
+static void test_resolve_path_rejects_invalid_cli_paths(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    GError *err = NULL;
+    char *missing[] = {"seekey", "--config"};
+    TEST_ASSERT_FALSE(seekey_config_resolve_path(&c, 2, missing, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    g_clear_error(&err);
+
+    char *option_as_value[] = {
+        "seekey", "--config", "--validate-config"};
+    TEST_ASSERT_FALSE(
+        seekey_config_resolve_path(&c, 3, option_as_value, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    g_clear_error(&err);
+
+    char too_long[sizeof(c.config_path) + 1];
+    memset(too_long, 'a', sizeof(too_long) - 1);
+    too_long[sizeof(too_long) - 1] = '\0';
+    char *oversized[] = {"seekey", "--config", too_long};
+    TEST_ASSERT_FALSE(seekey_config_resolve_path(&c, 3, oversized, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("", c.config_path);
+    g_clear_error(&err);
+
+    char *repeated[] = {
+        "seekey", "--config", "/tmp/first.ini",
+        "--config", "/tmp/second.ini"};
+    TEST_ASSERT_TRUE(seekey_config_resolve_path(&c, 5, repeated, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("/tmp/second.ini", c.config_path);
+}
+
 static void test_resolve_path_project_ini(void)
 {
     /* Create a temp dir with seekey.ini inside and chdir there. */
@@ -65,6 +99,7 @@ static void test_resolve_path_project_ini(void)
 
     test_chdir(old);
     g_free(old);
+    g_free(tmp);
 }
 
 static void test_resolve_path_default_when_no_file(void)
@@ -82,6 +117,7 @@ static void test_resolve_path_default_when_no_file(void)
 
     test_chdir(old);
     g_free(old);
+    g_free(tmp);
 }
 
 static void test_resolve_path_xdg_flag(void)
@@ -111,6 +147,7 @@ static void test_default_save_path_is_cwd_seekey_ini(void)
 
     test_chdir(old);
     g_free(old);
+    g_free(tmp);
 }
 
 /* ------------------------------------------------------------------ */
@@ -134,6 +171,20 @@ static void test_load_empty_path_returns_ok(void)
     GError *err = NULL;
     TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
     TEST_ASSERT_NULL(err);
+}
+
+static void test_load_rejects_nonregular_path(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    char *path = test_tmp_dir();
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    GError *err = NULL;
+    TEST_ASSERT_FALSE(seekey_config_load(&c, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    TEST_ASSERT_EQUAL_INT(G_IO_ERROR_INVALID_DATA, err->code);
+    g_clear_error(&err);
+    g_free(path);
 }
 
 static void test_parse_args_mouse_flags(void)
@@ -199,8 +250,36 @@ static void test_extract_matugen_path_before_load(void)
     SeekeyConfig c;
     seekey_config_set_defaults(&c);
     char *args[] = {"seekey", "--matugen", "/tmp/colors.json"};
-    seekey_cli_extract_matugen_path(&c, 3, args);
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(
+        seekey_cli_extract_matugen_path(&c, 3, args, &err));
     TEST_ASSERT_EQUAL_STRING("/tmp/colors.json", c.matugen_path);
+    TEST_ASSERT_NULL(err);
+
+    seekey_config_set_defaults(&c);
+    char *missing[] = {"seekey", "--matugen"};
+    TEST_ASSERT_FALSE(
+        seekey_cli_extract_matugen_path(&c, 2, missing, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    g_clear_error(&err);
+
+    char too_long[sizeof(c.matugen_path) + 1];
+    memset(too_long, 'a', sizeof(too_long) - 1);
+    too_long[sizeof(too_long) - 1] = '\0';
+    char *oversized[] = {"seekey", "--matugen", too_long};
+    TEST_ASSERT_FALSE(
+        seekey_cli_extract_matugen_path(&c, 3, oversized, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("", c.matugen_path);
+    g_clear_error(&err);
+
+    char *repeated[] = {
+        "seekey", "--matugen", "/tmp/first.json",
+        "--matugen", "/tmp/second.json"};
+    TEST_ASSERT_TRUE(
+        seekey_cli_extract_matugen_path(&c, 5, repeated, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("/tmp/second.json", c.matugen_path);
 }
 
 static void test_load_typing_max_width_zero(void)
@@ -530,6 +609,98 @@ static void test_save_preserves_comments_unknown_keys_and_matugen(void)
     g_free(path);
 }
 
+static void test_save_removes_stale_icon_overrides(void)
+{
+    char *path = test_write_file(
+        "stale-icons.ini", "[icons]\nBackspace=X\nEnter=Y\n");
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    TEST_ASSERT_EQUAL_UINT(2, c.icon_override_count);
+
+    c.icon_override_count = 1;
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    TEST_ASSERT_TRUE(g_key_file_has_key(key_file, "icons", "Backspace", NULL));
+    TEST_ASSERT_FALSE(g_key_file_has_key(key_file, "icons", "Enter", NULL));
+    g_key_file_unref(key_file);
+
+    c.icon_override_count = 0;
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+    key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    TEST_ASSERT_FALSE(g_key_file_has_group(key_file, "icons"));
+    g_key_file_unref(key_file);
+    TEST_ASSERT_NULL(err);
+    g_free(path);
+}
+
+static void test_save_migrates_legacy_window_size_keys(void)
+{
+    char *path = test_write_file(
+        "legacy-window-save.ini",
+        "[style]\nwindow-width=900\nwindow-height=210\n");
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    TEST_ASSERT_EQUAL_INT(
+        900, g_key_file_get_integer(key_file, "general", "window-width", &err));
+    TEST_ASSERT_EQUAL_INT(
+        210, g_key_file_get_integer(key_file, "general", "window-height", &err));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "window-width", NULL));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "window-height", NULL));
+    TEST_ASSERT_NULL(err);
+    g_key_file_unref(key_file);
+    g_free(path);
+}
+
+static void test_save_preserves_sparse_theme_inheritance(void)
+{
+    char *path = test_write_file(
+        "sparse-theme.ini", "[general]\ntheme=nord\n[style]\nalign=right\n");
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    TEST_ASSERT_EQUAL_STRING("alpha(#5e81ac, 0.92)", c.background);
+
+    g_strlcpy(c.foreground, "#123456", sizeof(c.foreground));
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    TEST_ASSERT_TRUE(
+        g_key_file_has_key(key_file, "style", "foreground", NULL));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "background", NULL));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "border-color", NULL));
+    g_key_file_set_string(key_file, "general", "theme", "dracula");
+    TEST_ASSERT_TRUE(g_key_file_save_to_file(key_file, path, &err));
+    g_key_file_unref(key_file);
+
+    SeekeyConfig reloaded;
+    seekey_config_set_defaults(&reloaded);
+    g_strlcpy(reloaded.config_path, path, sizeof(reloaded.config_path));
+    TEST_ASSERT_TRUE(seekey_config_load(&reloaded, &err));
+    TEST_ASSERT_EQUAL_STRING("#123456", reloaded.foreground);
+    TEST_ASSERT_EQUAL_STRING("alpha(#6272a4, 0.92)", reloaded.background);
+    TEST_ASSERT_NULL(err);
+    g_free(path);
+}
+
 /* ------------------------------------------------------------------ */
 
 static void test_theme_apply_known(void)
@@ -574,7 +745,9 @@ static void test_init_creates_file(void)
 {
     SeekeyConfig c;
     seekey_config_set_defaults(&c);
-    char *path = g_build_filename(test_tmp_dir(), "new.ini", NULL);
+    char *tmp = test_tmp_dir();
+    char *path = g_build_filename(tmp, "new.ini", NULL);
+    g_free(tmp);
     g_strlcpy(c.config_path, path, sizeof(c.config_path));
     GError *err = NULL;
     TEST_ASSERT_TRUE(seekey_config_init(&c, FALSE, &err));
@@ -682,6 +855,27 @@ static const char *MATUGEN_SAMPLE =
     "  }\n"
     "}\n";
 
+static void test_runtime_resolves_cli_matugen_theme(void)
+{
+    char *mpath = test_write_file("runtime-colors.json", MATUGEN_SAMPLE);
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+
+    int argc = 3;
+    char *args[] = {"seekey", "--theme", "matugen"};
+    char **argv = args;
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_parse_args(&c, &argc, &argv, &err));
+    TEST_ASSERT_EQUAL_STRING("@matugen:on_surface", c.foreground);
+    TEST_ASSERT_TRUE(seekey_config_resolve_matugen(&c, &err));
+    TEST_ASSERT_NULL(err);
+    TEST_ASSERT_EQUAL_STRING("#eeeeee", c.foreground);
+    TEST_ASSERT_EQUAL_STRING("alpha(#1a1a1a, 0.86)", c.background);
+
+    g_free(mpath);
+}
+
 static void test_matugen_load_roundtrip(void)
 {
     char *path = test_write_file("matugen.json", MATUGEN_SAMPLE);
@@ -703,6 +897,18 @@ static void test_matugen_load_missing_file(void)
     TEST_ASSERT_NULL(t);
     TEST_ASSERT_NOT_NULL(err);
     g_error_free(err);
+}
+
+static void test_matugen_load_rejects_nonregular_path(void)
+{
+    char *path = test_tmp_dir();
+    GError *err = NULL;
+    GHashTable *t = seekey_matugen_load(path, &err);
+    TEST_ASSERT_NULL(t);
+    TEST_ASSERT_NOT_NULL(err);
+    TEST_ASSERT_EQUAL_INT(G_IO_ERROR_INVALID_DATA, err->code);
+    g_clear_error(&err);
+    g_free(path);
 }
 
 static void test_matugen_load_malformed_json(void)
@@ -790,6 +996,9 @@ static void test_matugen_resolve_invalid_alpha(void)
     r = seekey_matugen_resolve_value("@matugen:surface@1.5", c);
     TEST_ASSERT_EQUAL_STRING("#1a1a1a", r);
     g_free(r);
+    r = seekey_matugen_resolve_value("@matugen:surface@nan", c);
+    TEST_ASSERT_EQUAL_STRING("#1a1a1a", r);
+    g_free(r);
     g_hash_table_destroy(c);
 }
 
@@ -867,14 +1076,13 @@ static void test_matugen_theme_resolves_and_survives_save(void)
 
     TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
     TEST_ASSERT_NULL(err);
-    char *saved = NULL;
-    TEST_ASSERT_TRUE(g_file_get_contents(path, &saved, NULL, &err));
-    TEST_ASSERT_NOT_NULL(g_strstr_len(
-        saved, -1, "foreground=@matugen:on_surface"));
-    TEST_ASSERT_NOT_NULL(g_strstr_len(
-        saved, -1, "background=@matugen:surface@0.86"));
-
-    g_free(saved);
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "foreground", NULL));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "background", NULL));
+    g_key_file_unref(key_file);
     g_free(mpath);
     g_free(path);
 }
@@ -896,13 +1104,46 @@ static void test_matugen_theme_preserves_static_override(void)
     TEST_ASSERT_EQUAL_STRING("#123456", c.foreground);
     TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
 
-    char *saved = NULL;
-    TEST_ASSERT_TRUE(g_file_get_contents(path, &saved, NULL, &err));
-    TEST_ASSERT_NOT_NULL(g_strstr_len(saved, -1, "foreground=#123456"));
-    TEST_ASSERT_NOT_NULL(g_strstr_len(
-        saved, -1, "background=@matugen:surface@0.86"));
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    char *foreground =
+        g_key_file_get_string(key_file, "style", "foreground", &err);
+    TEST_ASSERT_EQUAL_STRING("#123456", foreground);
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "background", NULL));
+    g_free(foreground);
+    g_key_file_unref(key_file);
+    g_free(mpath);
+    g_free(path);
+}
 
-    g_free(saved);
+static void test_switching_theme_drops_old_matugen_reference(void)
+{
+    char *mpath = test_write_file("switch-colors.json", MATUGEN_SAMPLE);
+    char *path = test_write_file(
+        "switch-from-matugen.ini",
+        "[general]\ntheme=matugen\n[style]\n"
+        "foreground=@matugen:on_surface\n");
+
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    g_strlcpy(c.theme, "nord", sizeof(c.theme));
+    TEST_ASSERT_TRUE(seekey_config_apply_theme(&c, c.theme));
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    char *foreground =
+        g_key_file_get_string(key_file, "style", "foreground", &err);
+    TEST_ASSERT_EQUAL_STRING("#eceff4", foreground);
+    TEST_ASSERT_FALSE(g_str_has_prefix(foreground, "@matugen:"));
+    TEST_ASSERT_NULL(err);
+    g_free(foreground);
+    g_key_file_unref(key_file);
     g_free(mpath);
     g_free(path);
 }
@@ -925,17 +1166,17 @@ static void test_matugen_theme_missing_file_uses_static_fallback(void)
     TEST_ASSERT_EQUAL_STRING("#f7f7f2", c.foreground);
     TEST_ASSERT_EQUAL_STRING("alpha(#111318, 0.86)", c.background);
     TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
-    char *saved = NULL;
-    TEST_ASSERT_TRUE(g_file_get_contents(path, &saved, NULL, &err));
-    TEST_ASSERT_NOT_NULL(g_strstr_len(
-        saved, -1, "foreground=@matugen:on_surface"));
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "foreground", NULL));
+    g_key_file_unref(key_file);
 
     if (old_copy != NULL)
         g_setenv("MATUGEN_COLORS", old_copy, TRUE);
     else
         g_unsetenv("MATUGEN_COLORS");
     g_free(old_copy);
-    g_free(saved);
     g_free(path);
 }
 
@@ -954,6 +1195,19 @@ static void test_explicit_missing_matugen_fails(void)
     TEST_ASSERT_NOT_NULL(err);
     g_clear_error(&err);
     g_free(path);
+}
+
+static void test_explicit_missing_matugen_without_config_fails(void)
+{
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.matugen_path, "/no/such/explicit-colors.json",
+              sizeof(c.matugen_path));
+    GError *err = NULL;
+    TEST_ASSERT_FALSE(seekey_config_load(&c, &err));
+    TEST_ASSERT_NOT_NULL(err);
+    TEST_ASSERT_EQUAL_INT(G_IO_ERROR_NOT_FOUND, err->code);
+    g_clear_error(&err);
 }
 
 static void test_cli_version_is_handled_before_config(void)
@@ -986,12 +1240,14 @@ int run_config_tests(void)
     UnityBegin("test_config.c");
     RUN_TEST(test_set_defaults_all_fields);
     RUN_TEST(test_resolve_path_cli_wins);
+    RUN_TEST(test_resolve_path_rejects_invalid_cli_paths);
     RUN_TEST(test_resolve_path_project_ini);
     RUN_TEST(test_resolve_path_default_when_no_file);
     RUN_TEST(test_resolve_path_xdg_flag);
     RUN_TEST(test_default_save_path_is_cwd_seekey_ini);
     RUN_TEST(test_load_missing_returns_ok_with_defaults);
     RUN_TEST(test_load_empty_path_returns_ok);
+    RUN_TEST(test_load_rejects_nonregular_path);
     RUN_TEST(test_parse_args_mouse_flags);
     RUN_TEST(test_parse_args_gui_modes);
     RUN_TEST(test_parse_args_typing_display);
@@ -1013,6 +1269,9 @@ int run_config_tests(void)
     RUN_TEST(test_load_rejects_too_many_icons);
     RUN_TEST(test_parse_args_rejects_unknown_theme);
     RUN_TEST(test_save_preserves_comments_unknown_keys_and_matugen);
+    RUN_TEST(test_save_removes_stale_icon_overrides);
+    RUN_TEST(test_save_migrates_legacy_window_size_keys);
+    RUN_TEST(test_save_preserves_sparse_theme_inheritance);
     RUN_TEST(test_theme_apply_known);
     RUN_TEST(test_theme_apply_matugen);
     RUN_TEST(test_theme_unknown_keeps_current);
@@ -1025,8 +1284,10 @@ int run_config_tests(void)
     RUN_TEST(test_matugen_path_default_xdg_cache);
     RUN_TEST(test_matugen_path_env_override);
     RUN_TEST(test_matugen_path_cli_override);
+    RUN_TEST(test_runtime_resolves_cli_matugen_theme);
     RUN_TEST(test_matugen_load_roundtrip);
     RUN_TEST(test_matugen_load_missing_file);
+    RUN_TEST(test_matugen_load_rejects_nonregular_path);
     RUN_TEST(test_matugen_load_malformed_json);
     RUN_TEST(test_matugen_resolve_exact_match);
     RUN_TEST(test_matugen_resolve_alpha);
@@ -1037,8 +1298,10 @@ int run_config_tests(void)
     RUN_TEST(test_missing_default_matugen_uses_theme_fallback);
     RUN_TEST(test_matugen_theme_resolves_and_survives_save);
     RUN_TEST(test_matugen_theme_preserves_static_override);
+    RUN_TEST(test_switching_theme_drops_old_matugen_reference);
     RUN_TEST(test_matugen_theme_missing_file_uses_static_fallback);
     RUN_TEST(test_explicit_missing_matugen_fails);
+    RUN_TEST(test_explicit_missing_matugen_without_config_fails);
     RUN_TEST(test_cli_version_is_handled_before_config);
     return UnityEnd();
 }

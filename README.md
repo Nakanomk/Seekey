@@ -64,6 +64,10 @@ Press some keys — bubbles appear at the bottom of the screen. That's it.
 > rule + the `input` group for you). See
 > [Troubleshooting](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting).
 
+Keyboard and mouse event nodes are watched at runtime. Reconnecting a USB
+keyboard, switching a dock, or replacing an input device does not require
+restarting Seekey once input capture has started.
+
 ---
 
 ## 🌟 Highlights
@@ -100,7 +104,8 @@ key overlay directly. `seekey --config-gui` always opens settings.
 The menu reads layout and colors from `~/.config/fuzzel/fuzzel.ini` when
 available, including Matugen colors written into that file. Fuzzel itself is
 not required. Missing or malformed fuzzel configuration falls back to safe
-built-in defaults.
+built-in defaults. Absolute and `~/` `include=` files are followed recursively;
+include cycles and excessive nesting are ignored safely.
 
 When `~/.cache/matugen/colors.json` is available, the GUI root menu also
 offers **Use Matugen colors** for the key overlay itself. A custom
@@ -125,6 +130,11 @@ typing-display=masked  # full, masked, or off
 text or its length. `off` suppresses ordinary typed characters while keeping
 shortcuts and non-text keys visible. Privacy modes also suppress ordinary
 character lines from `--debug-input` output.
+
+Typed-character grouping currently uses a built-in US evdev key map. Named
+keys and shortcuts still work on other layouts, but grouped text can differ
+from text produced by an active non-US layout or IME; see
+[Troubleshooting](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting#grouped-text-does-not-match-my-keyboard-layout).
 
 Prefer building manually? See
 [Build from source](https://github.com/Nakanomk/Seekey/wiki/Build-from-Source)
