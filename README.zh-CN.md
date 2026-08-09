@@ -52,8 +52,9 @@ make                       # 编译
 > 用户组）。详见
 > [问题排查](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting)。
 
-键盘和鼠标事件节点会在运行时持续监视。输入采集成功启动后，重新插入 USB
-键盘、切换扩展坞或更换输入设备都不需要重启 Seekey。
+键盘和鼠标事件节点会在运行时持续监视。重新插入 USB 键盘、切换扩展坞或更换
+输入设备都不需要重启 Seekey。即使启动时没有可读键盘，占位气泡也会保留，
+Seekey 会在热插拔或权限变化后继续重试。
 
 ---
 
@@ -87,10 +88,10 @@ make                       # 编译
 安装时还会创建 Seekey 桌面入口。第一次从应用菜单启动时，可以选择以后
 默认打开设置菜单，或直接启动按键浮层。`seekey --config-gui` 始终会打开设置。
 
-菜单会在存在时读取 `~/.config/fuzzel/fuzzel.ini` 的布局与配色，包括写入
-该文件的 Matugen 颜色。无需安装 fuzzel；文件缺失或损坏时会使用安全的内置
-默认值。绝对路径和 `~/` 形式的 `include=` 会递归读取，循环引用和过深嵌套
-会被安全忽略。
+菜单遵循 Fuzzel 的标准配置查找顺序：先读用户的 `fuzzel/fuzzel.ini`，再查
+`$XDG_CONFIG_DIRS`，包括其中由 Matugen 写入的颜色。无需安装 fuzzel；配置
+缺失或损坏时会使用安全的内置默认值。绝对路径和 `~/` 形式的 `include=`
+会递归读取，循环引用和过深嵌套会被安全忽略。
 
 存在 `~/.cache/matugen/colors.json` 时，GUI 根菜单还会提供**使用 Matugen
 配色**，用于设置按键浮层本身。显式指定的 `--matugen <path>` 会继续传给实时

@@ -571,6 +571,7 @@ static void detect_compositor(void)
 
     const char *name = desktop ? desktop : "unknown";
     g_print(_("seekey: compositor %s\n"), name);
+    char *normalized_name = g_ascii_strdown(name, -1);
 
     /* Compositor-specific hints (informational only for now).
      *
@@ -580,9 +581,9 @@ static void detect_compositor(void)
      * the latter is a substring of the former. */
     struct { const char *id; const char *hint; } hints[] = {
         /* Specific wlroots-based compositors first. */
-        {"KWinFT", N_("  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell;"
+        {"kwinft", N_("  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell;"
                     " layer-shell=auto works well.")},
-        {"Hyprland", N_("  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well.")},
+        {"hyprland", N_("  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well.")},
         {"niri", N_("  hint: layer-shell works; window is anchored to the chosen edge"
                  " and follows the focused monitor (persisted across sessions).")},
         {"sway",  N_("  hint: Sway supports wlr-layer-shell; layer-shell=auto works well.")},
@@ -590,20 +591,21 @@ static void detect_compositor(void)
         {"wayfire", N_("  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well.")},
         {"labwc", N_("  hint: labwc supports wlr-layer-shell; layer-shell=auto works well.")},
         /* Fallback-only compositors after. */
-        {"KDE", N_("  hint: KWin (default KDE Plasma) does not support wlr-layer-shell."
+        {"kde", N_("  hint: KWin (default KDE Plasma) does not support wlr-layer-shell."
                 "  seekey falls back to a normal window. See README §GNOME/KDE"
                 "  fallback for window rules to pin position and raise.")},
-        {"GNOME", N_("  hint: GNOME does not support wlr-layer-shell."
+        {"gnome", N_("  hint: GNOME does not support wlr-layer-shell."
                   "  seekey falls back to a normal window. See README §GNOME/KDE"
                   "  fallback for window rules to pin position and raise.")},
     };
 
     for (gsize i = 0; i < G_N_ELEMENTS(hints); i++) {
-        if (g_strstr_len(name, -1, hints[i].id) != NULL) {
+        if (g_strstr_len(normalized_name, -1, hints[i].id) != NULL) {
             g_print("%s\n", _(hints[i].hint));
             break;
         }
     }
+    g_free(normalized_name);
 }
 
 static void activate(GtkApplication *app, gpointer user_data)
@@ -740,6 +742,10 @@ static void activate(GtkApplication *app, gpointer user_data)
             }
             g_clear_error(&input_error);
         } else {
+            if (!seekey_input_has_keyboard(state->input)) {
+                g_printerr(_("seekey: no readable keyboard found; waiting for /dev/input devices or permission changes\n"));
+                g_printerr(_("seekey: grant read access to /dev/input/event* or run a quick test as root.\n"));
+            }
             seekey_input_start(state->input);
         }
     }
@@ -813,8 +819,8 @@ int main(int argc, char **argv)
     seekey_config_set_defaults(&state.config);
     GError *error = NULL;
 
-    /* If user explicitly says --init-config --xdg, pre-set path so init
-     * writes to ~/.config/seekey/config.ini. */
+    /* If the user explicitly passes --xdg, select the XDG config path before
+     * resolving or initializing the configuration. */
     if (seekey_cli_has_flag(argc, argv, "--xdg")) {
         state.config.xdg_config = TRUE;
     }

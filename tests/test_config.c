@@ -1132,6 +1132,190 @@ static void test_matugen_theme_resolves_and_survives_save(void)
     g_free(path);
 }
 
+static void test_matugen_reference_survives_palette_update(void)
+{
+    char *mpath = test_write_file("updated-reference-colors.json",
+                                  MATUGEN_SAMPLE);
+    char *path = test_write_file(
+        "updated-reference.ini",
+        "[style]\nforeground=@matugen:on_surface\n");
+
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    TEST_ASSERT_EQUAL_STRING("#eeeeee", c.foreground);
+
+    char *updated = g_strdup(MATUGEN_SAMPLE);
+    char *old_color = strstr(updated, "#eeeeee");
+    TEST_ASSERT_NOT_NULL(old_color);
+    memcpy(old_color, "#121212", strlen("#121212"));
+    TEST_ASSERT_TRUE(g_file_set_contents(mpath, updated, -1, &err));
+    g_free(updated);
+
+    c.duration_ms++;
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    char *foreground =
+        g_key_file_get_string(key_file, "style", "foreground", &err);
+    TEST_ASSERT_EQUAL_STRING("@matugen:on_surface", foreground);
+    g_free(foreground);
+    g_key_file_unref(key_file);
+
+    SeekeyConfig reloaded;
+    seekey_config_set_defaults(&reloaded);
+    g_strlcpy(reloaded.config_path, path, sizeof(reloaded.config_path));
+    g_strlcpy(reloaded.matugen_path, mpath, sizeof(reloaded.matugen_path));
+    TEST_ASSERT_TRUE(seekey_config_load(&reloaded, &err));
+    TEST_ASSERT_EQUAL_STRING("#121212", reloaded.foreground);
+
+    updated = g_strdup(MATUGEN_SAMPLE);
+    old_color = strstr(updated, "#eeeeee");
+    TEST_ASSERT_NOT_NULL(old_color);
+    memcpy(old_color, "#343434", strlen("#343434"));
+    TEST_ASSERT_TRUE(g_file_set_contents(mpath, updated, -1, &err));
+    g_free(updated);
+
+    /* A manual override remains static even when it happens to equal the
+     * newly generated palette value. */
+    g_strlcpy(reloaded.foreground, "#343434",
+              sizeof(reloaded.foreground));
+    TEST_ASSERT_TRUE(seekey_config_save(&reloaded, &err));
+    key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    foreground =
+        g_key_file_get_string(key_file, "style", "foreground", &err);
+    TEST_ASSERT_EQUAL_STRING("#343434", foreground);
+    g_free(foreground);
+    g_key_file_unref(key_file);
+
+    TEST_ASSERT_NULL(err);
+    g_free(mpath);
+    g_free(path);
+}
+
+static void test_sparse_matugen_theme_survives_palette_update(void)
+{
+    char *mpath = test_write_file("updated-theme-colors.json",
+                                  MATUGEN_SAMPLE);
+    char *path = test_write_file("updated-theme.ini",
+                                 "[general]\ntheme=matugen\n");
+
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, path, sizeof(c.config_path));
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+
+    char *updated = g_strdup(MATUGEN_SAMPLE);
+    char *old_foreground = strstr(updated, "#eeeeee");
+    char *old_background = strstr(updated, "#1a1a1a");
+    TEST_ASSERT_NOT_NULL(old_foreground);
+    TEST_ASSERT_NOT_NULL(old_background);
+    memcpy(old_foreground, "#343434", strlen("#343434"));
+    memcpy(old_background, "#565656", strlen("#565656"));
+    TEST_ASSERT_TRUE(g_file_set_contents(mpath, updated, -1, &err));
+    g_free(updated);
+
+    c.duration_ms++;
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, path, 0, &err));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "foreground", NULL));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "background", NULL));
+    g_key_file_unref(key_file);
+
+    SeekeyConfig reloaded;
+    seekey_config_set_defaults(&reloaded);
+    g_strlcpy(reloaded.config_path, path, sizeof(reloaded.config_path));
+    g_strlcpy(reloaded.matugen_path, mpath, sizeof(reloaded.matugen_path));
+    TEST_ASSERT_TRUE(seekey_config_load(&reloaded, &err));
+    TEST_ASSERT_EQUAL_STRING("#343434", reloaded.foreground);
+    TEST_ASSERT_EQUAL_STRING("alpha(#565656, 0.86)", reloaded.background);
+    TEST_ASSERT_NULL(err);
+    g_free(mpath);
+    g_free(path);
+}
+
+static void test_matugen_save_as_preserves_dynamic_sources(void)
+{
+    char *mpath = test_write_file("save-as-colors.json", MATUGEN_SAMPLE);
+    char *source = test_write_file(
+        "save-as-source.ini",
+        "[style]\nforeground=@matugen:on_surface\n");
+    char *dir = test_tmp_dir();
+    char *target = g_build_filename(dir, "save-as-target.ini", NULL);
+    g_free(dir);
+
+    SeekeyConfig c;
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, source, sizeof(c.config_path));
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+    GError *err = NULL;
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    g_strlcpy(c.config_path, target, sizeof(c.config_path));
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+
+    GKeyFile *key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(g_key_file_load_from_file(key_file, target, 0, &err));
+    char *foreground =
+        g_key_file_get_string(key_file, "style", "foreground", &err);
+    TEST_ASSERT_EQUAL_STRING("@matugen:on_surface", foreground);
+    g_free(foreground);
+    g_key_file_unref(key_file);
+
+    char *existing_target = test_write_file(
+        "save-as-existing.ini",
+        "[general]\ntheme=light\n[style]\n"
+        "foreground=@matugen:surface\n");
+    g_strlcpy(c.config_path, existing_target, sizeof(c.config_path));
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+    key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(
+        g_key_file_load_from_file(key_file, existing_target, 0, &err));
+    foreground =
+        g_key_file_get_string(key_file, "style", "foreground", &err);
+    TEST_ASSERT_EQUAL_STRING("@matugen:on_surface", foreground);
+    g_free(foreground);
+    g_key_file_unref(key_file);
+
+    char *theme_source = test_write_file(
+        "save-as-theme-source.ini", "[general]\ntheme=matugen\n");
+    char *theme_target = test_write_file(
+        "save-as-theme-target.ini",
+        "[general]\ntheme=light\n[style]\n"
+        "foreground=#010203\nbackground=#040506\n");
+    seekey_config_set_defaults(&c);
+    g_strlcpy(c.config_path, theme_source, sizeof(c.config_path));
+    g_strlcpy(c.matugen_path, mpath, sizeof(c.matugen_path));
+    TEST_ASSERT_TRUE(seekey_config_load(&c, &err));
+    g_strlcpy(c.config_path, theme_target, sizeof(c.config_path));
+    TEST_ASSERT_TRUE(seekey_config_save(&c, &err));
+
+    key_file = g_key_file_new();
+    TEST_ASSERT_TRUE(
+        g_key_file_load_from_file(key_file, theme_target, 0, &err));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "foreground", NULL));
+    TEST_ASSERT_FALSE(
+        g_key_file_has_key(key_file, "style", "background", NULL));
+    g_key_file_unref(key_file);
+    TEST_ASSERT_NULL(err);
+
+    g_free(theme_target);
+    g_free(theme_source);
+    g_free(existing_target);
+    g_free(target);
+    g_free(source);
+    g_free(mpath);
+}
+
 static void test_matugen_theme_preserves_static_override(void)
 {
     char *mpath = test_write_file("override-colors.json", MATUGEN_SAMPLE);
@@ -1344,6 +1528,9 @@ int run_config_tests(void)
     RUN_TEST(test_matugen_load_applies_to_config_fields);
     RUN_TEST(test_missing_default_matugen_uses_theme_fallback);
     RUN_TEST(test_matugen_theme_resolves_and_survives_save);
+    RUN_TEST(test_matugen_reference_survives_palette_update);
+    RUN_TEST(test_sparse_matugen_theme_survives_palette_update);
+    RUN_TEST(test_matugen_save_as_preserves_dynamic_sources);
     RUN_TEST(test_matugen_theme_preserves_static_override);
     RUN_TEST(test_switching_theme_drops_old_matugen_reference);
     RUN_TEST(test_matugen_theme_missing_file_uses_static_fallback);

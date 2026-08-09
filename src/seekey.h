@@ -31,6 +31,7 @@ enum {
 };
 
 #define SEEKEY_MAX_ICON_OVERRIDES 64
+#define SEEKEY_THEME_COLOR_COUNT 7
 
 typedef struct {
     char name[32];
@@ -86,6 +87,10 @@ typedef struct {
     char placeholder_border_color[64];
     char config_path[512];
     char matugen_path[512];
+    /* Runtime-only source tracking. This keeps dynamic Matugen references
+     * intact when colors.json changes while an editor is open. */
+    char matugen_raw_values[SEEKEY_THEME_COLOR_COUNT][128];
+    char matugen_resolved_values[SEEKEY_THEME_COLOR_COUNT][128];
     IconOverride icon_overrides[SEEKEY_MAX_ICON_OVERRIDES];
     guint icon_override_count;
 } SeekeyConfig;
@@ -110,6 +115,7 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
                               SeekeyKeyCallback callback,
                               gpointer user_data,
                               GError **error);
+gboolean seekey_input_has_keyboard(const SeekeyInput *input);
 void seekey_input_start(SeekeyInput *input);
 void seekey_input_stop(SeekeyInput *input);
 void seekey_input_free(SeekeyInput *input);

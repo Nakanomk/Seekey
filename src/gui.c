@@ -378,9 +378,26 @@ static void menu_theme_load(MenuTheme *theme)
     menu_theme_defaults(theme);
     char *dir = g_build_filename(g_get_user_config_dir(), "fuzzel", NULL);
     char *config = g_build_filename(dir, "fuzzel.ini", NULL);
-    menu_theme_load_file(theme, config, TRUE);
+    if (g_file_test(config, G_FILE_TEST_IS_REGULAR)) {
+        menu_theme_load_file(theme, config, TRUE);
+        g_free(config);
+        g_free(dir);
+        return;
+    }
     g_free(config);
     g_free(dir);
+
+    const char *const *system_dirs = g_get_system_config_dirs();
+    for (guint i = 0; system_dirs[i] != NULL; i++) {
+        config = g_build_filename(system_dirs[i], "fuzzel", "fuzzel.ini",
+                                  NULL);
+        if (g_file_test(config, G_FILE_TEST_IS_REGULAR)) {
+            menu_theme_load_file(theme, config, TRUE);
+            g_free(config);
+            return;
+        }
+        g_free(config);
+    }
 }
 
 static char *css_color(const char value[16])
@@ -695,8 +712,7 @@ static void on_search_changed(GtkEditable *editable, gpointer user_data)
 static gboolean menu_save(MenuState *state)
 {
     if (state->config->config_path[0] == '\0') {
-        char *path = g_build_filename(g_get_user_config_dir(), "seekey",
-                                      "config.ini", NULL);
+        char *path = seekey_default_save_path();
         if (strlen(path) >= sizeof(state->config->config_path)) {
             g_printerr("seekey: default config path is too long\n");
             g_free(path);

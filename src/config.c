@@ -41,6 +41,8 @@ static const char *STYLE_THEME_KEYS[] = {
     "placeholder-foreground", "placeholder-background",
     "placeholder-border-color",
 };
+G_STATIC_ASSERT(G_N_ELEMENTS(STYLE_THEME_KEYS) ==
+                SEEKEY_THEME_COLOR_COUNT);
 
 gsize seekey_config_theme_count(void) { return G_N_ELEMENTS(THEME_PRESETS); }
 
@@ -68,6 +70,10 @@ gboolean seekey_config_apply_theme(SeekeyConfig *config, const char *name) {
   if (p == NULL) {
     return FALSE;
   }
+  memset(config->matugen_raw_values, 0,
+         sizeof(config->matugen_raw_values));
+  memset(config->matugen_resolved_values, 0,
+         sizeof(config->matugen_resolved_values));
   g_strlcpy(config->foreground, p->foreground, sizeof(config->foreground));
   g_strlcpy(config->background, p->background, sizeof(config->background));
   g_strlcpy(config->border_color, p->border_color,
@@ -841,8 +847,9 @@ static void keyfile_restore_matugen_references(GKeyFile *key_file,
   };
   gboolean needs_colors = FALSE;
   for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
-    if (raw_values[i] != NULL &&
-        g_str_has_prefix(raw_values[i], "@matugen:")) {
+    if ((raw_values[i] != NULL &&
+         g_str_has_prefix(raw_values[i], "@matugen:")) ||
+        g_str_has_prefix(config->matugen_raw_values[i], "@matugen:")) {
       needs_colors = TRUE;
       break;
     }
@@ -858,15 +865,34 @@ static void keyfile_restore_matugen_references(GKeyFile *key_file,
   }
 
   for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
-    const char *raw = raw_values[i];
-    if (raw == NULL || !g_str_has_prefix(raw, "@matugen:")) continue;
-    char *resolved = seekey_matugen_resolve_value(raw, colors);
-    gboolean unresolved = g_strcmp0(resolved, raw) == 0;
-    if (g_strcmp0(current[i], raw) == 0 ||
-        g_strcmp0(current[i], resolved) == 0 ||
-        (theme_unchanged && unresolved &&
-         g_strcmp0(current[i], fallback_values[i]) == 0)) {
-      g_key_file_set_string(key_file, "style", STYLE_THEME_KEYS[i], raw);
+    const char *file_reference =
+        raw_values[i] != NULL &&
+                g_str_has_prefix(raw_values[i], "@matugen:")
+            ? raw_values[i]
+            : NULL;
+    const char *tracked_reference =
+        g_str_has_prefix(config->matugen_raw_values[i], "@matugen:") &&
+                config->matugen_resolved_values[i][0] != '\0'
+            ? config->matugen_raw_values[i]
+            : NULL;
+    if (tracked_reference != NULL) {
+      if (g_strcmp0(current[i], config->matugen_resolved_values[i]) == 0) {
+        g_key_file_set_string(key_file, "style", STYLE_THEME_KEYS[i],
+                              tracked_reference);
+      }
+      continue;
+    }
+    if (file_reference == NULL) continue;
+
+    char *resolved = seekey_matugen_resolve_value(file_reference, colors);
+    gboolean unresolved = g_strcmp0(resolved, file_reference) == 0;
+    if (theme_unchanged &&
+        (g_strcmp0(current[i], file_reference) == 0 ||
+         g_strcmp0(current[i], resolved) == 0 ||
+         (unresolved &&
+          g_strcmp0(current[i], fallback_values[i]) == 0))) {
+      g_key_file_set_string(key_file, "style", STYLE_THEME_KEYS[i],
+                            file_reference);
     }
     g_free(resolved);
   }
@@ -894,11 +920,24 @@ static void config_resolve_matugen_values(SeekeyConfig *config,
   };
 
   for (gsize i = 0; i < G_N_ELEMENTS(fields); i++) {
+    if (g_str_has_prefix(fields[i].value, "@matugen:")) {
+      g_strlcpy(config->matugen_raw_values[i], fields[i].value,
+                sizeof(config->matugen_raw_values[i]));
+    } else {
+      config->matugen_raw_values[i][0] = '\0';
+      config->matugen_resolved_values[i][0] = '\0';
+    }
     char *resolved = seekey_matugen_resolve_value(fields[i].value, colors);
     g_strlcpy(fields[i].value, resolved, fields[i].size);
     g_free(resolved);
   }
   replace_unresolved_matugen_values(config);
+  for (gsize i = 0; i < G_N_ELEMENTS(fields); i++) {
+    if (config->matugen_raw_values[i][0] != '\0') {
+      g_strlcpy(config->matugen_resolved_values[i], fields[i].value,
+                sizeof(config->matugen_resolved_values[i]));
+    }
+  }
 }
 
 gboolean seekey_config_resolve_matugen(SeekeyConfig *config, GError **error) {
@@ -953,7 +992,14 @@ static void keyfile_preserve_theme_inheritance(GKeyFile *key_file,
                                                const SeekeyConfig *config,
                                                char **raw_values,
                                                gboolean existing_file) {
-  if (!existing_file) return;
+  gboolean has_dynamic_source = FALSE;
+  for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
+    if (config->matugen_raw_values[i][0] != '\0') {
+      has_dynamic_source = TRUE;
+      break;
+    }
+  }
+  if (!existing_file && !has_dynamic_source) return;
 
   SeekeyConfig themed;
   seekey_config_set_defaults(&themed);
@@ -984,8 +1030,16 @@ static void keyfile_preserve_theme_inheritance(GKeyFile *key_file,
       themed.placeholder_background, themed.placeholder_border_color,
   };
   for (gsize i = 0; i < G_N_ELEMENTS(STYLE_THEME_KEYS); i++) {
-    if (raw_values[i] == NULL &&
-        g_strcmp0(current[i], inherited[i]) == 0) {
+    gboolean unchanged_dynamic_value =
+        themed.matugen_raw_values[i][0] != '\0' &&
+        (g_strcmp0(current[i], themed.matugen_raw_values[i]) == 0 ||
+         (g_strcmp0(config->matugen_raw_values[i],
+                    themed.matugen_raw_values[i]) == 0 &&
+          config->matugen_resolved_values[i][0] != '\0' &&
+          g_strcmp0(current[i], config->matugen_resolved_values[i]) == 0));
+    if ((raw_values[i] == NULL &&
+         g_strcmp0(current[i], inherited[i]) == 0) ||
+        unchanged_dynamic_value) {
       g_key_file_remove_key(key_file, "style", STYLE_THEME_KEYS[i], NULL);
     }
   }
@@ -1137,15 +1191,15 @@ static void print_help(void) {
   g_print(
       "Usage: seekey [OPTIONS]\n\n"
       "Options:\n"
-      "  --config PATH          Config file path (default: ./seekey.ini)\n"
+      "  --config PATH          Use an explicit configuration file\n"
+      "  --xdg                  Use $XDG_CONFIG_HOME/seekey/config.ini\n"
       "  --config-tui           Open terminal UI to edit and save "
       "configuration\n"
       "  --config-gui           Open graphical configuration menu\n"
       "  --desktop-launch       Launch using the saved desktop-entry mode\n"
       "  --init-config          Write the current default/config/CLI "
       "settings to config\n"
-      "  --init-config --xdg    Write to ~/.config/seekey/config.ini "
-      "instead\n"
+      "  --init-config --xdg    Write to the XDG config path instead\n"
       "  --matugen PATH         Path to a matugen colors.json (overrides "
       "env/default)\n"
       "  --force                Allow --init-config to overwrite an "

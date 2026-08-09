@@ -66,7 +66,8 @@ Press some keys — bubbles appear at the bottom of the screen. That's it.
 
 Keyboard and mouse event nodes are watched at runtime. Reconnecting a USB
 keyboard, switching a dock, or replacing an input device does not require
-restarting Seekey once input capture has started.
+restarting Seekey. If no readable keyboard exists at launch, the placeholder
+stays visible while Seekey retries after hotplug or permission changes.
 
 ---
 
@@ -101,11 +102,11 @@ Installation also adds a Seekey desktop entry. On its first launch, choose
 whether future application-menu launches open the settings menu or start the
 key overlay directly. `seekey --config-gui` always opens settings.
 
-The menu reads layout and colors from `~/.config/fuzzel/fuzzel.ini` when
-available, including Matugen colors written into that file. Fuzzel itself is
-not required. Missing or malformed fuzzel configuration falls back to safe
-built-in defaults. Absolute and `~/` `include=` files are followed recursively;
-include cycles and excessive nesting are ignored safely.
+The menu follows Fuzzel's standard config lookup: the user
+`fuzzel/fuzzel.ini`, then `$XDG_CONFIG_DIRS`, including Matugen colors written
+there. Fuzzel itself is not required. Missing or malformed configuration falls
+back to safe built-in defaults. Absolute and `~/` `include=` files are followed
+recursively; include cycles and excessive nesting are ignored safely.
 
 When `~/.cache/matugen/colors.json` is available, the GUI root menu also
 offers **Use Matugen colors** for the key overlay itself. A custom

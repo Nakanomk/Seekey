@@ -228,6 +228,7 @@ fi
 
 print_compositor_hints() {
     local desktop="${XDG_CURRENT_DESKTOP:-unknown}"
+    local desktop_lower="${desktop,,}"
     local wayland="${WAYLAND_DISPLAY:-}"
     echo
     echo "  Detected environment:"
@@ -237,13 +238,19 @@ print_compositor_hints() {
     else
         warn "  WAYLAND_DISPLAY is not set. seekey needs a Wayland session."
     fi
-    case "${desktop}" in
-        *niri*|*Hyprland*|*sway*|*river*)
-            ok "  Compositor supports wlr-layer-shell: default config should work." ;;
-        *GNOME*)
+    case "${desktop_lower}" in
+        *niri*|*hyprland*|*sway*|*river*|*wayfire*|*labwc*)
+            if pkg-config --exists gtk4-layer-shell-0 2>/dev/null ||
+               pkg-config --exists gtk4-layer-shell 2>/dev/null; then
+                ok "  Compositor and build support wlr-layer-shell."
+            else
+                warn "  Compositor supports wlr-layer-shell, but gtk4-layer-shell"
+                warn "  was not detected. Install it, then rebuild Seekey."
+            fi ;;
+        *gnome*)
             warn "GNOME does not support wlr-layer-shell. In the TUI set"
             warn "  layer-shell=off (or pass --no-layer-shell) to use a fallback window." ;;
-        *KDE*|*Plasma*)
+        *kde*|*plasma*)
             warn "KDE Plasma does not support wlr-layer-shell. In the TUI set"
             warn "  layer-shell=off to use a fallback window." ;;
         *)

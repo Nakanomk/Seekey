@@ -18,6 +18,12 @@ static void test_preview_config_comparison_ignores_runtime_fields(void)
     b.debug_input = TRUE;
     TEST_ASSERT_TRUE(seekey_preview_config_equal(&a, &b));
 
+    g_strlcpy(b.matugen_raw_values[0], "@matugen:on_surface",
+              sizeof(b.matugen_raw_values[0]));
+    g_strlcpy(b.matugen_resolved_values[0], "#ffffff",
+              sizeof(b.matugen_resolved_values[0]));
+    TEST_ASSERT_TRUE(seekey_preview_config_equal(&a, &b));
+
     b.no_layer_shell = TRUE;
     TEST_ASSERT_FALSE(seekey_preview_config_equal(&a, &b));
     b.no_layer_shell = a.no_layer_shell;

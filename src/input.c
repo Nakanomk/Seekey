@@ -32,6 +32,7 @@ struct SeekeyInput {
     gboolean pressed[MAX_KEY_CODE + 1];
     gboolean caps_lock;
     gboolean caps_lock_initialized;
+    gint keyboard_count;
     /* Shift is deferred: we don't emit it on press, only on release if no
      * other key was pressed while Shift was held (i.e. the user really
      * pressed Shift alone). Cleared when any non-shift key is pressed. */
@@ -222,7 +223,11 @@ static gboolean scan_input_devices(SeekeyInput *input)
     prune_inactive_devices(input->mouse_devices);
 
     GDir *dir = g_dir_open("/dev/input", 0, NULL);
-    if (dir == NULL) return keyboard_changed;
+    if (dir == NULL) {
+        g_atomic_int_set(&input->keyboard_count,
+                         (gint)input->devices->len);
+        return keyboard_changed;
+    }
 
     const char *name = NULL;
     while ((name = g_dir_read_name(dir)) != NULL) {
@@ -238,6 +243,7 @@ static gboolean scan_input_devices(SeekeyInput *input)
         g_free(path);
     }
     g_dir_close(dir);
+    g_atomic_int_set(&input->keyboard_count, (gint)input->devices->len);
     return keyboard_changed;
 }
 
@@ -247,7 +253,8 @@ static void setup_input_watch(SeekeyInput *input)
     if (input->watch_fd < 0) return;
     if (inotify_add_watch(input->watch_fd, "/dev/input",
                           IN_CREATE | IN_DELETE | IN_MOVED_FROM |
-                              IN_MOVED_TO | IN_ATTRIB) < 0) {
+                              IN_MOVED_TO | IN_ATTRIB | IN_DELETE_SELF |
+                              IN_MOVE_SELF | IN_UNMOUNT) < 0) {
         close(input->watch_fd);
         input->watch_fd = -1;
     }
@@ -590,11 +597,29 @@ static gboolean read_device_events(SeekeyInput *input, InputDevice *device,
     }
 }
 
-static void drain_input_watch(int fd)
+static gboolean drain_input_watch(int fd)
 {
-    char buffer[4096];
-    while (read(fd, buffer, sizeof(buffer)) > 0) {
+    union {
+        struct inotify_event alignment;
+        char bytes[4096];
+    } buffer;
+    gboolean invalidated = FALSE;
+    ssize_t count;
+    while ((count = read(fd, buffer.bytes, sizeof(buffer.bytes))) > 0) {
+        gsize offset = 0;
+        while (offset + sizeof(struct inotify_event) <= (gsize)count) {
+            struct inotify_event *event =
+                (struct inotify_event *)(buffer.bytes + offset);
+            gsize event_size = sizeof(*event) + event->len;
+            if (event_size > (gsize)count - offset) break;
+            if (event->mask & (IN_IGNORED | IN_UNMOUNT |
+                               IN_DELETE_SELF | IN_MOVE_SELF)) {
+                invalidated = TRUE;
+            }
+            offset += event_size;
+        }
     }
+    return invalidated;
 }
 
 static gpointer input_thread(gpointer data)
@@ -619,7 +644,9 @@ static gpointer input_thread(gpointer data)
             if (device->active) device_count++;
         }
 
-        guint total = device_count + (input->watch_fd >= 0 ? 1 : 0);
+        int watch_fd = input->watch_fd;
+        gboolean watch_active = watch_fd >= 0;
+        guint total = device_count + (watch_active ? 1 : 0);
         struct pollfd *fds = g_new0(struct pollfd, total);
         InputDevice **polled_devices = g_new0(InputDevice *, device_count);
         gboolean *mouse_flags = g_new0(gboolean, device_count);
@@ -640,9 +667,9 @@ static gpointer input_thread(gpointer data)
             index++;
         }
         guint watch_index = device_count;
-        if (input->watch_fd >= 0) {
+        if (watch_active) {
             fds[watch_index] = (struct pollfd){
-                .fd = input->watch_fd, .events = POLLIN};
+                .fd = watch_fd, .events = POLLIN};
         }
 
         int rc = poll(fds, (nfds_t)total, 250);
@@ -673,9 +700,9 @@ static gpointer input_thread(gpointer data)
                 }
             }
 
-            if (input->watch_fd >= 0 && fds[watch_index].revents != 0) {
+            if (watch_active && fds[watch_index].revents != 0) {
                 if (fds[watch_index].revents & POLLIN) {
-                    drain_input_watch(input->watch_fd);
+                    watch_failed = drain_input_watch(watch_fd);
                     needs_rescan = TRUE;
                 }
                 if (fds[watch_index].revents &
@@ -691,7 +718,7 @@ static gpointer input_thread(gpointer data)
         g_free(fds);
 
         if (watch_failed) {
-            close(input->watch_fd);
+            close(watch_fd);
             input->watch_fd = -1;
         }
         if (needs_rescan) {
@@ -699,6 +726,7 @@ static gpointer input_thread(gpointer data)
             if (keyboard_state_dirty || keyboard_devices_changed) {
                 rebuild_keyboard_state(input);
             }
+            if (input->watch_fd < 0) setup_input_watch(input);
             next_periodic_scan =
                 g_get_monotonic_time() + 5 * G_TIME_SPAN_SECOND;
         }
@@ -728,19 +756,15 @@ SeekeyInput *seekey_input_new(const SeekeyConfig *config,
     }
 
     scan_input_devices(input);
-
-    if (input->devices->len == 0) {
-        g_set_error(error,
-                    G_IO_ERROR,
-                    G_IO_ERROR_PERMISSION_DENIED,
-                    "No readable keyboard devices found under /dev/input/event*");
-        seekey_input_free(input);
-        return NULL;
-    }
-
     setup_input_watch(input);
 
     return input;
+}
+
+gboolean seekey_input_has_keyboard(const SeekeyInput *input)
+{
+    return input != NULL &&
+           g_atomic_int_get(&input->keyboard_count) > 0;
 }
 
 void seekey_input_start(SeekeyInput *input)

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: seekey 0.2.2\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
-"POT-Creation-Date: 2026-08-03 07:56+0800\n"
+"POT-Creation-Date: 2026-08-10 01:34+0800\n"
 "PO-Revision-Date: 2026-08-03 02:10+0800\n"
 "Last-Translator: Seekey contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -33,7 +33,7 @@ msgstr "seekey：未检测到合成器（没有 WAYLAND_DISPLAY）\n"
 msgid "seekey: compositor %s\n"
 msgstr "seekey：合成器 %s\n"
 
-#: src/main.c:583
+#: src/main.c:584
 msgid ""
 "  hint: KWinFT (KDE wlroots fork) supports wlr-layer-shell; layer-shell=auto "
 "works well."
@@ -41,11 +41,11 @@ msgstr ""
 "  提示：KWinFT（KDE 的 wlroots 分支）支持 wlr-layer-shell，layer-shell=auto "
 "可正常工作。"
 
-#: src/main.c:585
+#: src/main.c:586
 msgid "  hint: Hyprland supports wlr-layer-shell; layer-shell=auto works well."
 msgstr "  提示：Hyprland 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
 
-#: src/main.c:586
+#: src/main.c:587
 msgid ""
 "  hint: layer-shell works; window is anchored to the chosen edge and follows "
 "the focused monitor (persisted across sessions)."
@@ -53,23 +53,23 @@ msgstr ""
 "  提示：layer-shell 正常工作，窗口锚定到所选边缘，跟随聚焦的显示器（跨会话记"
 "忆）。"
 
-#: src/main.c:588
+#: src/main.c:589
 msgid "  hint: Sway supports wlr-layer-shell; layer-shell=auto works well."
 msgstr "  提示：Sway 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
 
-#: src/main.c:589
+#: src/main.c:590
 msgid "  hint: river supports wlr-layer-shell; layer-shell=auto works well."
 msgstr "  提示：river 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
 
-#: src/main.c:590
+#: src/main.c:591
 msgid "  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well."
 msgstr "  提示：Wayfire 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
 
-#: src/main.c:591
+#: src/main.c:592
 msgid "  hint: labwc supports wlr-layer-shell; layer-shell=auto works well."
 msgstr "  提示：labwc 支持 wlr-layer-shell，layer-shell=auto 可正常工作。"
 
-#: src/main.c:593
+#: src/main.c:594
 msgid ""
 "  hint: KWin (default KDE Plasma) does not support wlr-layer-shell.  seekey "
 "falls back to a normal window. See README §GNOME/KDE  fallback for window "
@@ -78,7 +78,7 @@ msgstr ""
 "  提示：KWin（默认的 KDE Plasma）不支持 wlr-layer-shell，seekey 退回到普通窗"
 "口模式。固定位置 / 置顶方法见 README §GNOME/KDE fallback。"
 
-#: src/main.c:596
+#: src/main.c:597
 msgid ""
 "  hint: GNOME does not support wlr-layer-shell.  seekey falls back to a "
 "normal window. See README §GNOME/KDE  fallback for window rules to pin "
@@ -87,29 +87,29 @@ msgstr ""
 "  提示：GNOME 不支持 wlr-layer-shell，seekey 退回到普通窗口模式。固定位置 / "
 "置顶方法见 README §GNOME/KDE fallback。"
 
-#: src/main.c:662
+#: src/main.c:664
 #, c-format
 msgid "seekey: saved monitor '%s' not found, using default\n"
 msgstr "seekey：未找到保存的显示器 '%s'，使用默认\n"
 
-#: src/main.c:672
+#: src/main.c:674
 #, c-format
 msgid "seekey: layer-shell required but unavailable: %s\n"
 msgstr "seekey：需要 layer-shell 但不可用：%s\n"
 
-#: src/main.c:674
+#: src/main.c:676
 msgid ""
 "seekey: install gtk4-layer-shell and use a compositor that supports wlr-"
 "layer-shell.\n"
 msgstr ""
 "seekey：请安装 gtk4-layer-shell，并使用支持 wlr-layer-shell 的合成器。\n"
 
-#: src/main.c:681
+#: src/main.c:683
 #, c-format
 msgid "seekey: using fallback window: %s\n"
 msgstr "seekey：使用 fallback 窗口：%s\n"
 
-#: src/main.c:682
+#: src/main.c:684
 msgid ""
 "seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
 "seekey:       The following settings have NO EFFECT in fallback mode:\n"
@@ -129,168 +129,174 @@ msgstr ""
 "seekey：       Sway、river），或在支持的系统上安装 gtk4-layer-shell。\n"
 "seekey：       详见 README §Compatibility model。\n"
 
-#: src/main.c:732 src/main.c:892 src/main.c:916 src/main.c:926 src/main.c:936
-#: src/main.c:948 src/main.c:962 src/main.c:977
+#: src/main.c:734 src/main.c:898 src/main.c:922 src/main.c:932 src/main.c:942
+#: src/main.c:954 src/main.c:968 src/main.c:983
 #, c-format
 msgid "seekey: %s\n"
 msgstr "seekey：%s\n"
 
-#: src/main.c:739
+#: src/main.c:741 src/main.c:747
 msgid ""
 "seekey: grant read access to /dev/input/event* or run a quick test as root.\n"
 msgstr "seekey：给 /dev/input/event* 加上读权限，或者用 root 跑一次试试。\n"
 
-#: src/main.c:846
+#: src/main.c:746
+msgid ""
+"seekey: no readable keyboard found; waiting for /dev/input devices or "
+"permission changes\n"
+msgstr "seekey：没有找到可读键盘；正在等待 /dev/input 设备或权限发生变化\n"
+
+#: src/main.c:852
 #, c-format
 msgid "seekey: config file not found: %s\n"
 msgstr "seekey：找不到配置文件：%s\n"
 
-#: src/main.c:896
+#: src/main.c:902
 #, c-format
 msgid "Wrote config to %s\n"
 msgstr "配置已写入 %s\n"
 
-#: src/main.c:912
+#: src/main.c:918
 msgid "seekey: no config file to validate\n"
 msgstr "seekey：没有可校验的配置文件\n"
 
-#: src/main.c:920
+#: src/main.c:926
 #, c-format
 msgid "Config OK: %s\n"
 msgstr "配置正确：%s\n"
 
-#: src/main.c:958
+#: src/main.c:964
 msgid "seekey: overlay is already running\n"
 msgstr "seekey：按键浮层已经在运行\n"
 
-#: src/main.c:971
+#: src/main.c:977
 msgid ""
 "seekey: a configuration preview is active; close the menu before starting "
 "the overlay\n"
 msgstr "seekey：配置预览正在运行；请先关闭菜单再启动按键浮层\n"
 
-#: src/gui.c:671 src/gui.c:1024
+#: src/gui.c:688 src/gui.c:1040
 msgid "Apply value"
 msgstr "应用此值"
 
-#: src/gui.c:672
+#: src/gui.c:689
 msgid "Invalid value"
 msgstr "值无效"
 
-#: src/gui.c:828
+#: src/gui.c:844
 msgid "First launch"
 msgstr "首次启动"
 
-#: src/gui.c:828
+#: src/gui.c:844
 msgid "Choose launcher behavior"
 msgstr "选择桌面入口行为"
 
-#: src/gui.c:830 src/gui.c:1046
+#: src/gui.c:846 src/gui.c:1062
 msgid "Open the Seekey menu"
 msgstr "打开 Seekey 菜单"
 
-#: src/gui.c:831
+#: src/gui.c:847
 msgid "Recommended"
 msgstr "推荐"
 
-#: src/gui.c:836 src/gui.c:1056
+#: src/gui.c:852 src/gui.c:1072
 msgid "Start the key overlay directly"
 msgstr "直接启动按键浮层"
 
-#: src/gui.c:848
+#: src/gui.c:864
 msgid "Search actions and settings"
 msgstr "搜索操作和设置"
 
-#: src/gui.c:850
+#: src/gui.c:866
 msgid "Stop key overlay"
 msgstr "关闭按键浮层"
 
-#: src/gui.c:852
+#: src/gui.c:868
 msgid "Start key overlay"
 msgstr "启动按键浮层"
 
-#: src/gui.c:853
+#: src/gui.c:869
 msgid "Save first"
 msgstr "将先保存"
 
-#: src/gui.c:857
+#: src/gui.c:873
 msgid "Use Matugen colors"
 msgstr "使用 Matugen 配色"
 
-#: src/gui.c:859
+#: src/gui.c:875
 msgid "colors.json missing"
 msgstr "缺少 colors.json"
 
-#: src/gui.c:861
+#: src/gui.c:877
 msgid "Active"
 msgstr "已启用"
 
-#: src/gui.c:862
+#: src/gui.c:878
 msgid "Available"
 msgstr "可用"
 
-#: src/gui.c:879
+#: src/gui.c:895
 msgid "Not chosen"
 msgstr "尚未选择"
 
-#: src/gui.c:881
+#: src/gui.c:897
 msgid "Menu"
 msgstr "菜单"
 
-#: src/gui.c:882
+#: src/gui.c:898
 msgid "Overlay"
 msgstr "按键浮层"
 
-#: src/gui.c:883 src/gui.c:1042
+#: src/gui.c:899 src/gui.c:1058
 msgid "Desktop launcher"
 msgstr "桌面启动器"
 
-#: src/gui.c:885
+#: src/gui.c:901
 msgid "Save configuration"
 msgstr "保存配置"
 
-#: src/gui.c:886
+#: src/gui.c:902
 msgid "Unsaved"
 msgstr "未保存"
 
-#: src/gui.c:886
+#: src/gui.c:902
 msgid "Saved"
 msgstr "已保存"
 
-#: src/gui.c:887
+#: src/gui.c:903
 msgid "Reload configuration"
 msgstr "重新加载配置"
 
-#: src/gui.c:899
+#: src/gui.c:915
 msgid "Search settings"
 msgstr "搜索设置"
 
-#: src/gui.c:910 src/gui.c:938 src/gui.c:962 src/gui.c:1012 src/gui.c:1025
-#: src/gui.c:1062
+#: src/gui.c:926 src/gui.c:954 src/gui.c:978 src/gui.c:1028 src/gui.c:1041
+#: src/gui.c:1078
 msgid "← Back"
 msgstr "← 返回"
 
-#: src/gui.c:921 src/gui.c:1042
+#: src/gui.c:937 src/gui.c:1058
 msgid "Choose a value"
 msgstr "选择一个值"
 
-#: src/gui.c:924
+#: src/gui.c:940
 msgid "Enabled"
 msgstr "启用"
 
-#: src/gui.c:933
+#: src/gui.c:949
 msgid "Disabled"
 msgstr "禁用"
 
-#: src/gui.c:949
+#: src/gui.c:965
 msgid "Search values"
 msgstr "搜索可选值"
 
-#: src/gui.c:995
+#: src/gui.c:1011
 msgid "Search installed fonts"
 msgstr "搜索已安装字体"
 
-#: src/gui.c:1001
+#: src/gui.c:1017
 msgid "System default"
 msgstr "系统默认"
 

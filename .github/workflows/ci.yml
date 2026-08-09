@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential clang-tools dbus-x11 desktop-file-utils gettext \
+            libevdev-dev libgtk-4-dev libjson-glib-dev libncurses-dev pkg-config
+
+      - name: Build
+        run: make -B all
+
+      - name: Test
+        run: dbus-run-session -- make -B check
+
+      - name: Static analysis
+        run: scan-build --status-bugs make -B seekey
