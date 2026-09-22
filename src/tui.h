@@ -48,6 +48,8 @@ void   tui_field_value(const TuiField *field, char *buffer, gsize size);
 void   tui_adjust_field(TuiField *field, int direction);
 int    tui_nearest_color_index(const char *hex);
 gboolean tui_color_value_valid(const char *value);
+gboolean tui_field_input_valid(const TuiField *field, const char *value);
+void tui_field_apply_input(TuiField *field, const char *value);
 void   tui_reset_field(TuiField *field);
 void   tui_build_fields(TuiField *out, size_t *out_count, SeekeyConfig *config);
 

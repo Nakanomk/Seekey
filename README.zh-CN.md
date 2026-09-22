@@ -48,8 +48,8 @@ make                       # 编译
 随便按几个键——气泡会出现在屏幕底部。就这样。
 
 > ⚠️ **第一次运行没有气泡？** 多半是没权限读 `/dev/input/event*`。
-> 最简单的办法是跑 `./install.sh`（它会自动配好 udev 规则和 `input`
-> 用户组）。详见
+> 最简单的办法是跑 `./install.sh`，它会通过 udev 为当前本地会话配置 ACL；
+> 不支持 `uaccess` 的系统可显式使用 `--input-group` 回退。详见
 > [问题排查](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting)。
 
 键盘和鼠标事件节点会在运行时持续监视。重新插入 USB 键盘、切换扩展坞或更换
@@ -68,7 +68,7 @@ Seekey 会在热插拔或权限变化后继续重试。
 | 🖱️ **点击穿透** | 点击会直接穿透到下面的应用，键盘焦点也永远不会被抢。 |
 | 🎨 **开箱即好看** | 七个内置主题（default / nord / dracula / catppuccin / monokai / light / matugen）+ 自定义颜色 + 自定义按键图标。 |
 | 🖼️ **认识 Matugen** | 在 GUI/TUI 里选择 Matugen，或直接写 `@matugen:<role>`；配色跟随壁纸，缺失角色会安全回退。 |
-| ⚙️ **启动器式 GUI** | 按 fuzzel 布局实现的紧凑可搜索菜单，并用真实 GTK/CSS 布局实时预览样式。 |
+| ⚙️ **真 fuzzel 菜单** | 设置菜单以真正的 fuzzel 会话运行，自动继承你的 fuzzel 主题；没有 fuzzel 时回退到内置 GTK 菜单。 |
 | ⌨️ **TUI 配置编辑器** | 在终端里浏览、修改和保存所有设置，并始终保留一个屏上浮层。 |
 | 🔒 **输入隐私模式** | 可正常显示打字、用一个固定标签代替整段输入，或隐藏普通字符而保留快捷键。 |
 
@@ -88,10 +88,11 @@ Seekey 会在热插拔或权限变化后继续重试。
 安装时还会创建 Seekey 桌面入口。第一次从应用菜单启动时，可以选择以后
 默认打开设置菜单，或直接启动按键浮层。`seekey --config-gui` 始终会打开设置。
 
-菜单遵循 Fuzzel 的标准配置查找顺序：先读用户的 `fuzzel/fuzzel.ini`，再查
-`$XDG_CONFIG_DIRS`，包括其中由 Matugen 写入的颜色。无需安装 fuzzel；配置
-缺失或损坏时会使用安全的内置默认值。绝对路径和 `~/` 形式的 `include=`
-会递归读取，循环引用和过深嵌套会被安全忽略。
+设置菜单由真正的 [fuzzel](https://codeberg.org/dnkl/fuzzel) 会话驱动
+（fuzzel ≥ 1.11），外观和行为与你的启动器完全一致，并直接沿用你的
+`fuzzel.ini`——包括其中由 Matugen 写入的颜色。fuzzel 是可选的运行时依赖：
+缺失、版本过旧或配置损坏时，Seekey 会回退到内置 GTK 菜单，页面相同并带有
+实时预览。
 
 存在 `~/.cache/matugen/colors.json` 时，GUI 根菜单还会提供**使用 Matugen
 配色**，用于设置按键浮层本身。显式指定的 `--matugen <path>` 会继续传给实时

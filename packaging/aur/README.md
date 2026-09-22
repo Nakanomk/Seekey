@@ -99,7 +99,17 @@ version.
 
 ## Input permissions on Arch
 
-Arch's systemd udev rules already assign input devices to group `input`. When
-a rule sets the group but leaves the mode unspecified, udev applies mode
-`0660`. The AUR packages therefore do not ship a competing udev rule; users
-only need to join the `input` group and log out/in.
+Both AUR packages install `70-seekey-input.rules` under
+`/usr/lib/udev/rules.d`. The rule tags input event devices with `uaccess`, so
+systemd-logind grants an ACL to the active local login session. It also keeps
+group `input` with mode `0660` as a compatibility fallback.
+
+Persistent `input` group membership is normally unnecessary. On sessions
+without working `uaccess`, users may explicitly join the group and log out/in:
+
+```sh
+sudo usermod -aG input "$USER"
+```
+
+Warn users that every `input` group member can read all keyboard and mouse
+events, including outside the active graphical session.

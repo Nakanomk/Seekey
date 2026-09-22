@@ -39,7 +39,7 @@ VERSION := $(shell sed -n 's/^#define SEEKEY_VERSION "\([^"]*\)"/\1/p' src/seeke
 CPPFLAGS += -DGETTEXT_PACKAGE=\"$(GETTEXT_PACKAGE)\" -DLOCALEDIR=\"$(LOCALEDIR)\"
 
 TARGET := seekey
-SRC := src/main.c src/config.c src/gui.c src/style.c src/preview_session.c src/runtime_lock.c src/tui.c \
+SRC := src/main.c src/config.c src/gui.c src/fuzzel_menu.c src/style.c src/preview_session.c src/runtime_lock.c src/tui.c \
       src/window_state.c src/input.c src/keynames.c src/layer_shell.c
 OBJ := $(SRC:.c=.o)
 
@@ -117,9 +117,10 @@ uninstall:
 	done
 
 format:
-	@command -v clang-format >/dev/null 2>&1 && \
-	    clang-format -i src/*.c src/*.h tests/*.c tests/*.h || \
-	    echo "clang-format not installed, skipping"
+	@command -v clang-format >/dev/null 2>&1 || { \
+	    echo "clang-format not installed" >&2; exit 1; \
+	}
+	clang-format --style=file -i src/*.c src/*.h tests/*.c tests/*.h
 
 $(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/style.c src/tui.c src/keynames.c src/window_state.c src/runtime_lock.c src/preview_session.c
 	@mkdir -p build
@@ -127,7 +128,7 @@ $(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/style.c sr
 	    src/config.c src/style.c src/tui.c src/keynames.c src/window_state.c src/runtime_lock.c src/preview_session.c \
 	    $(LDFLAGS) -o $@ $(TEST_LDLIBS)
 
-check: $(TEST_BIN)
+check: $(TARGET) $(TEST_BIN)
 	./$(TEST_BIN)
 	bash -n install.sh
 	msgfmt --check --check-accelerators=_ -o /dev/null po/zh_CN.po

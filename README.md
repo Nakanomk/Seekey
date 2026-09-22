@@ -60,8 +60,9 @@ make                       # build
 Press some keys — bubbles appear at the bottom of the screen. That's it.
 
 > ⚠️ **No bubbles on first run?** You need read access to
-> `/dev/input/event*`. The easiest fix is `./install.sh` (it sets up a udev
-> rule + the `input` group for you). See
+> `/dev/input/event*`. The easiest fix is `./install.sh`, which installs an
+> active-session udev ACL. Systems without `uaccess` can use the explicit
+> `--input-group` fallback. See
 > [Troubleshooting](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting).
 
 Keyboard and mouse event nodes are watched at runtime. Reconnecting a USB
@@ -81,7 +82,7 @@ stays visible while Seekey retries after hotplug or permission changes.
 | 🖱️ **Click-through** | Clicks pass straight through to whatever is underneath. Keyboard focus is never stolen. |
 | 🎨 **Looks nice out of the box** | Seven built-in themes (default, nord, dracula, catppuccin, monokai, light, matugen) + custom colors + custom key icons. |
 | 🖼️ **Matugen-aware** | Pick Matugen from the GUI/TUI or reference `@matugen:<role>` directly; colors follow your wallpaper with safe static fallbacks. |
-| ⚙️ **Launcher-style GUI** | A compact searchable menu modeled on fuzzel's layout, with a live style preview. |
+| ⚙️ **Real fuzzel menu** | The settings menu runs as a real fuzzel session and inherits your fuzzel theme; a built-in GTK menu takes over when fuzzel is absent. |
 | ⌨️ **TUI config editor** | Browse, change, and save every setting with an on-screen overlay. |
 | 🔒 **Typed-text privacy** | Keep normal typing, replace each typing burst with one fixed label, or hide typed characters while shortcuts remain visible. |
 
@@ -102,11 +103,11 @@ Installation also adds a Seekey desktop entry. On its first launch, choose
 whether future application-menu launches open the settings menu or start the
 key overlay directly. `seekey --config-gui` always opens settings.
 
-The menu follows Fuzzel's standard config lookup: the user
-`fuzzel/fuzzel.ini`, then `$XDG_CONFIG_DIRS`, including Matugen colors written
-there. Fuzzel itself is not required. Missing or malformed configuration falls
-back to safe built-in defaults. Absolute and `~/` `include=` files are followed
-recursively; include cycles and excessive nesting are ignored safely.
+The settings menu is driven by a real [fuzzel](https://codeberg.org/dnkl/fuzzel)
+session (fuzzel ≥ 1.11), so it looks and behaves exactly like your launcher and
+follows your `fuzzel.ini` — including Matugen colors written there. Fuzzel is an
+optional runtime dependency: when it is missing, too old, or misconfigured,
+Seekey falls back to a built-in GTK menu with the same pages and a live preview.
 
 When `~/.cache/matugen/colors.json` is available, the GUI root menu also
 offers **Use Matugen colors** for the key overlay itself. A custom

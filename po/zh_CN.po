@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: seekey 0.2.3\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
-"POT-Creation-Date: 2026-08-10 01:34+0800\n"
+"POT-Creation-Date: 2026-09-22 20:01+0800\n"
 "PO-Revision-Date: 2026-08-03 02:10+0800\n"
 "Last-Translator: Seekey contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -175,130 +175,147 @@ msgid ""
 "the overlay\n"
 msgstr "seekey：配置预览正在运行；请先关闭菜单再启动按键浮层\n"
 
-#: src/gui.c:688 src/gui.c:1040
+#: src/gui.c:491 src/gui.c:871
 msgid "Apply value"
 msgstr "应用此值"
 
-#: src/gui.c:689
+#: src/gui.c:492 src/fuzzel_menu.c:456
 msgid "Invalid value"
 msgstr "值无效"
 
-#: src/gui.c:844
+#: src/gui.c:675 src/fuzzel_menu.c:739
 msgid "First launch"
 msgstr "首次启动"
 
-#: src/gui.c:844
+#: src/gui.c:675
 msgid "Choose launcher behavior"
 msgstr "选择桌面入口行为"
 
-#: src/gui.c:846 src/gui.c:1062
+#: src/gui.c:677 src/gui.c:893 src/fuzzel_menu.c:677 src/fuzzel_menu.c:730
 msgid "Open the Seekey menu"
 msgstr "打开 Seekey 菜单"
 
-#: src/gui.c:847
+#: src/gui.c:678 src/fuzzel_menu.c:731
 msgid "Recommended"
 msgstr "推荐"
 
-#: src/gui.c:852 src/gui.c:1072
+#: src/gui.c:683 src/gui.c:903 src/fuzzel_menu.c:685 src/fuzzel_menu.c:735
 msgid "Start the key overlay directly"
 msgstr "直接启动按键浮层"
 
-#: src/gui.c:864
+#: src/gui.c:695
 msgid "Search actions and settings"
 msgstr "搜索操作和设置"
 
-#: src/gui.c:866
+#: src/gui.c:697 src/fuzzel_menu.c:783
 msgid "Stop key overlay"
 msgstr "关闭按键浮层"
 
-#: src/gui.c:868
+#: src/gui.c:699 src/fuzzel_menu.c:787 src/fuzzel_menu.c:789
 msgid "Start key overlay"
 msgstr "启动按键浮层"
 
-#: src/gui.c:869
+#: src/gui.c:700 src/fuzzel_menu.c:788
 msgid "Save first"
 msgstr "将先保存"
 
-#: src/gui.c:873
+#: src/gui.c:704 src/fuzzel_menu.c:796 src/fuzzel_menu.c:798
 msgid "Use Matugen colors"
 msgstr "使用 Matugen 配色"
 
-#: src/gui.c:875
+#: src/gui.c:706
 msgid "colors.json missing"
 msgstr "缺少 colors.json"
 
-#: src/gui.c:877
+#: src/gui.c:708 src/fuzzel_menu.c:797
 msgid "Active"
 msgstr "已启用"
 
-#: src/gui.c:878
+#: src/gui.c:709
 msgid "Available"
 msgstr "可用"
 
-#: src/gui.c:895
+#: src/gui.c:726 src/fuzzel_menu.c:816
 msgid "Not chosen"
 msgstr "尚未选择"
 
-#: src/gui.c:897
+#: src/gui.c:728 src/fuzzel_menu.c:817
 msgid "Menu"
 msgstr "菜单"
 
-#: src/gui.c:898
+#: src/gui.c:729 src/fuzzel_menu.c:817
 msgid "Overlay"
 msgstr "按键浮层"
 
-#: src/gui.c:899 src/gui.c:1058
+#: src/gui.c:730 src/gui.c:889 src/fuzzel_menu.c:692 src/fuzzel_menu.c:819
 msgid "Desktop launcher"
 msgstr "桌面启动器"
 
-#: src/gui.c:901
+#: src/gui.c:732 src/fuzzel_menu.c:824
 msgid "Save configuration"
 msgstr "保存配置"
 
-#: src/gui.c:902
+#: src/gui.c:733 src/fuzzel_menu.c:825
 msgid "Unsaved"
 msgstr "未保存"
 
-#: src/gui.c:902
+#: src/gui.c:733 src/fuzzel_menu.c:825
 msgid "Saved"
 msgstr "已保存"
 
-#: src/gui.c:903
+#: src/gui.c:734 src/fuzzel_menu.c:826
 msgid "Reload configuration"
 msgstr "重新加载配置"
 
-#: src/gui.c:915
+#: src/gui.c:746
 msgid "Search settings"
 msgstr "搜索设置"
 
-#: src/gui.c:926 src/gui.c:954 src/gui.c:978 src/gui.c:1028 src/gui.c:1041
-#: src/gui.c:1078
+#: src/gui.c:757 src/gui.c:785 src/gui.c:809 src/gui.c:859 src/gui.c:872
+#: src/gui.c:909 src/fuzzel_menu.c:409 src/fuzzel_menu.c:516
+#: src/fuzzel_menu.c:570 src/fuzzel_menu.c:633 src/fuzzel_menu.c:689
 msgid "← Back"
 msgstr "← 返回"
 
-#: src/gui.c:937 src/gui.c:1058
+#: src/gui.c:768 src/gui.c:889
 msgid "Choose a value"
 msgstr "选择一个值"
 
-#: src/gui.c:940
+#: src/gui.c:771 src/fuzzel_menu.c:560
 msgid "Enabled"
 msgstr "启用"
 
-#: src/gui.c:949
+#: src/gui.c:780 src/fuzzel_menu.c:566
 msgid "Disabled"
 msgstr "禁用"
 
-#: src/gui.c:965
+#: src/gui.c:796
 msgid "Search values"
 msgstr "搜索可选值"
 
-#: src/gui.c:1011
+#: src/gui.c:842
 msgid "Search installed fonts"
 msgstr "搜索已安装字体"
 
-#: src/gui.c:1017
+#: src/gui.c:848
 msgid "System default"
 msgstr "系统默认"
+
+#: src/fuzzel_menu.c:404
+msgid "Save changes and quit"
+msgstr "保存并退出"
+
+#: src/fuzzel_menu.c:407
+msgid "Discard changes and quit"
+msgstr "放弃修改并退出"
+
+#: src/fuzzel_menu.c:412
+msgid "Unsaved changes"
+msgstr "有未保存的修改"
+
+#: src/fuzzel_menu.c:827
+msgid "Quit"
+msgstr "退出"
 
 #: src/keynames.c:141
 msgid "<Some Characters>"
@@ -321,52 +338,3 @@ msgstr "seekey：layer-shell 已激活（锚定右下，底边距 %u，水平边
 #: src/layer_shell.c:159
 msgid "seekey: layer-shell active (anchor bottom full-width center)\n"
 msgstr "seekey：layer-shell 已激活（锚定底边全宽居中）\n"
-
-#~ msgid "Fix invalid color values before saving"
-#~ msgstr "请先修正无效的颜色值再保存"
-
-#~ msgid "Font family cannot be empty"
-#~ msgstr "字体名称不能为空"
-
-#, c-format
-#~ msgid "Saved to %s"
-#~ msgstr "已保存到 %s"
-
-#~ msgid "Application-menu preference saved"
-#~ msgstr "应用菜单启动偏好已保存"
-
-#~ msgid "Reloaded from disk"
-#~ msgstr "已从磁盘重新加载"
-
-#~ msgid "Close"
-#~ msgstr "关闭"
-
-#~ msgid "Application menu opens settings"
-#~ msgstr "从应用菜单打开设置"
-
-#~ msgid "Turn off to start the key overlay directly from the desktop entry."
-#~ msgstr "关闭后，从桌面入口直接启动按键浮层。"
-
-#~ msgid "Ready"
-#~ msgstr "就绪"
-
-#~ msgid "Reload from disk"
-#~ msgstr "从磁盘重新加载"
-
-#~ msgid "Save and start"
-#~ msgstr "保存并启动"
-
-#~ msgid "Seekey settings"
-#~ msgstr "Seekey 设置"
-
-#~ msgid "How should the Seekey launcher open?"
-#~ msgstr "Seekey 桌面入口以后如何启动？"
-
-#~ msgid ""
-#~ "You can open this settings menu every time, or start the key overlay "
-#~ "directly. The choice can be changed later in settings."
-#~ msgstr ""
-#~ "你可以每次打开此设置菜单，也可以直接启动按键浮层。之后仍可在设置中修改。"
-
-#~ msgid "Open settings menu"
-#~ msgstr "打开设置菜单"

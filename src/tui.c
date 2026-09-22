@@ -4,6 +4,7 @@
 #include "preview_session.h"
 #include "window_state.h"
 
+#include <errno.h>
 #include <locale.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -240,6 +241,40 @@ gboolean tui_color_value_valid(const char *value)
 
     g_free(copy);
     return valid;
+}
+
+gboolean tui_field_input_valid(const TuiField *field, const char *value)
+{
+    if (field == NULL || value == NULL) return FALSE;
+
+    if (field->type == TUI_UINT) {
+        if (value[0] == '\0') return FALSE;
+        errno = 0;
+        char *end = NULL;
+        guint64 parsed = g_ascii_strtoull(value, &end, 10);
+        return errno == 0 && end != value && *end == '\0' &&
+               parsed >= field->min && parsed <= field->max;
+    }
+
+    if (field->type != TUI_STRING && field->type != TUI_COLOR) {
+        return FALSE;
+    }
+    if (field->string_target == NULL || field->string_size == 0 ||
+        strlen(value) >= field->string_size) {
+        return FALSE;
+    }
+    return field->type != TUI_COLOR || tui_color_value_valid(value);
+}
+
+void tui_field_apply_input(TuiField *field, const char *value)
+{
+    if (!tui_field_input_valid(field, value)) return;
+
+    if (field->type == TUI_UINT) {
+        *field->uint_target = (guint)g_ascii_strtoull(value, NULL, 10);
+    } else {
+        g_strlcpy(field->string_target, value, field->string_size);
+    }
 }
 
 void tui_reset_field(TuiField *field)
@@ -557,7 +592,13 @@ static gboolean tui_prompt_string(const char *label, const char *hint,
                  label, current ? current : "");
     }
     char buf[512] = {0};
-    getnstr(buf, (int)sizeof(buf) - 1);
+    gsize input_size = MIN(sizeof(buf), out_size);
+    if (input_size == 0) {
+        noecho();
+        curs_set(0);
+        return FALSE;
+    }
+    getnstr(buf, (int)input_size - 1);
     noecho();
     curs_set(0);
     if (buf[0] == '\0') {
@@ -879,7 +920,7 @@ static void tui_draw_help(void)
     mvprintw(3, 4, "Up/Down or j/k      select field within current tab");
     mvprintw(4, 4, "Left/Right or h/l   adjust numeric/choice/color/bool");
     mvprintw(5, 4, "Tab / Shift-Tab     next / previous tab");
-    mvprintw(6, 4, "g g                 first tab     G  last tab");
+    mvprintw(6, 4, "g                   first tab     G  last tab");
     mvprintw(7, 4, "Enter               edit / pick (depends on field type)");
     mvprintw(8, 4, "Esc or q            back / cancel in pickers");
     mvprintw(10, 2, "Actions");
@@ -1190,7 +1231,7 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
             st.selected = tui_first_in_group(&st, st.current_group);
             st.scroll = 0;
             break;
-        case 'g':  /* 'g' then 'g' → first tab; first field */
+        case 'g':  /* first tab; first field */
             st.current_group = TUI_GROUP_GENERAL;
             st.selected = tui_first_in_group(&st, st.current_group);
             st.scroll = 0;
@@ -1249,9 +1290,9 @@ gboolean seekey_tui_run(SeekeyConfig *config, GError **error)
                 char new_val[256];
                 g_strlcpy(new_val, f->string_target, sizeof(new_val));
                 if (tui_prompt_string(f->label, f->input_hint,
-                                      new_val, sizeof(new_val),
+                                      new_val, f->string_size,
                                       f->string_target)) {
-                    g_strlcpy(f->string_target, new_val, f->string_size);
+                    tui_field_apply_input(f, new_val);
                     st.dirty = TRUE;
                 }
                 break;

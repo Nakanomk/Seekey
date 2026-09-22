@@ -5,7 +5,6 @@
 #include "tui.h"
 #include "window_state.h"
 
-#include <errno.h>
 #include <string.h>
 
 typedef enum {
@@ -100,7 +99,7 @@ static void menu_show_root(MenuState *state);
 static void menu_show_group(MenuState *state, TuiGroup group);
 static void menu_show_desktop(MenuState *state);
 
-static gboolean menu_matugen_available(const SeekeyConfig *config)
+gboolean seekey_menu_matugen_available(const SeekeyConfig *config)
 {
     char *path = config->matugen_path[0] != '\0'
                      ? g_strdup(config->matugen_path)
@@ -188,216 +187,6 @@ static void menu_theme_defaults(MenuTheme *theme)
     theme_set_color(theme->selection_match, "cb4b16ff");
     theme_set_color(theme->counter, "93a1a1ff");
     theme_set_color(theme->border, "002b36ff");
-}
-
-static guint key_file_uint(GKeyFile *key_file, const char *group,
-                           const char *key, guint minimum, guint maximum,
-                           guint fallback)
-{
-    GError *error = NULL;
-    guint64 value = g_key_file_get_uint64(key_file, group, key, &error);
-    if (error != NULL || value < minimum || value > maximum) value = fallback;
-    g_clear_error(&error);
-    return (guint)value;
-}
-
-static void theme_load_font(MenuTheme *theme, const char *font)
-{
-    if (font == NULL || font[0] == '\0') return;
-    char **parts = g_strsplit(font, ":", -1);
-    if (parts[0] != NULL && parts[0][0] != '\0' &&
-        g_utf8_validate(parts[0], -1, NULL) && strlen(parts[0]) < 128) {
-        g_strlcpy(theme->font_family, parts[0], sizeof(theme->font_family));
-    }
-    for (guint i = 1; parts[i] != NULL; i++) {
-        if (g_str_has_prefix(parts[i], "size=")) {
-            char *end = NULL;
-            guint64 size = g_ascii_strtoull(parts[i] + 5, &end, 10);
-            if (end != parts[i] + 5 && *end == '\0' && size >= 6 &&
-                size <= 72) {
-                theme->font_size = (guint)size;
-            }
-        }
-    }
-    g_strfreev(parts);
-}
-
-static void menu_theme_apply_key_file(MenuTheme *theme, GKeyFile *key_file,
-                                      gboolean include_layout)
-{
-    if (include_layout) {
-        char *font = g_key_file_get_string(key_file, "main", "font", NULL);
-        theme_load_font(theme, font);
-        g_free(font);
-        theme->lines = key_file_uint(key_file, "main", "lines", 1, 100,
-                                     theme->lines);
-        theme->width_chars = key_file_uint(key_file, "main", "width", 10,
-                                           300, theme->width_chars);
-        theme->horizontal_pad = key_file_uint(
-            key_file, "main", "horizontal-pad", 0, 500,
-            theme->horizontal_pad);
-        theme->vertical_pad = key_file_uint(
-            key_file, "main", "vertical-pad", 0, 500,
-            theme->vertical_pad);
-        theme->inner_pad = key_file_uint(key_file, "main", "inner-pad", 0,
-                                         500, theme->inner_pad);
-        theme->border_width = key_file_uint(
-            key_file, "border", "width", 0, 50, theme->border_width);
-        theme->border_radius = key_file_uint(
-            key_file, "border", "radius", 0, 200, theme->border_radius);
-        theme->selection_radius = key_file_uint(
-            key_file, "border", "selection-radius", 0, 200,
-            theme->selection_radius);
-    }
-
-    struct {
-        const char *key;
-        char *target;
-    } colors[] = {
-        {"background", theme->background},
-        {"text", theme->text},
-        {"prompt", theme->prompt},
-        {"placeholder", theme->placeholder},
-        {"input", theme->input},
-        {"match", theme->match},
-        {"selection", theme->selection},
-        {"selection-text", theme->selection_text},
-        {"selection-match", theme->selection_match},
-        {"counter", theme->counter},
-        {"border", theme->border},
-    };
-    for (guint i = 0; i < G_N_ELEMENTS(colors); i++) {
-        char *value = g_key_file_get_string(key_file, "colors",
-                                            colors[i].key, NULL);
-        theme_set_color(colors[i].target, value);
-        g_free(value);
-    }
-}
-
-static char *menu_theme_include_path(const char *value)
-{
-    if (value == NULL) return NULL;
-    char *copy = g_strdup(value);
-    char *path = g_strstrip(copy);
-    gsize length = strlen(path);
-    if (length >= 2 &&
-        ((path[0] == '"' && path[length - 1] == '"') ||
-         (path[0] == '\'' && path[length - 1] == '\''))) {
-        path[length - 1] = '\0';
-        path++;
-    }
-
-    char *expanded = NULL;
-    if (g_str_has_prefix(path, "~/")) {
-        const char *home = g_get_home_dir();
-        if (home != NULL) expanded = g_build_filename(home, path + 2, NULL);
-    } else if (g_path_is_absolute(path)) {
-        expanded = g_strdup(path);
-    }
-    g_free(copy);
-    return expanded;
-}
-
-static GPtrArray *menu_theme_find_includes(const char *contents)
-{
-    GPtrArray *includes = g_ptr_array_new_with_free_func(g_free);
-    char **lines = g_strsplit(contents, "\n", -1);
-    gboolean in_main = TRUE;
-    for (guint i = 0; lines[i] != NULL; i++) {
-        char *line = g_strstrip(lines[i]);
-        if (line[0] == '\0' || line[0] == '#' || line[0] == ';') continue;
-        if (line[0] == '[') {
-            char *end = strchr(line + 1, ']');
-            if (end != NULL) {
-                *end = '\0';
-                in_main = g_ascii_strcasecmp(line + 1, "main") == 0;
-            }
-            continue;
-        }
-        if (!in_main) continue;
-        char *equals = strchr(line, '=');
-        if (equals == NULL) continue;
-        *equals = '\0';
-        if (g_ascii_strcasecmp(g_strstrip(line), "include") != 0) continue;
-        char *path = menu_theme_include_path(equals + 1);
-        if (path != NULL) g_ptr_array_add(includes, path);
-    }
-    g_strfreev(lines);
-    return includes;
-}
-
-static void menu_theme_load_file_recursive(MenuTheme *theme,
-                                           const char *path,
-                                           gboolean include_layout,
-                                           GHashTable *visited,
-                                           guint depth)
-{
-    if (path == NULL || depth > 16) return;
-    char *canonical = g_canonicalize_filename(path, NULL);
-    if (g_hash_table_contains(visited, canonical)) {
-        g_free(canonical);
-        return;
-    }
-    g_hash_table_add(visited, canonical);
-
-    char *contents = NULL;
-    gsize length = 0;
-    if (!g_file_test(path, G_FILE_TEST_IS_REGULAR)) return;
-    if (!g_file_get_contents(path, &contents, &length, NULL)) return;
-
-    GPtrArray *includes = menu_theme_find_includes(contents);
-    for (guint i = 0; i < includes->len; i++) {
-        menu_theme_load_file_recursive(
-            theme, g_ptr_array_index(includes, i), include_layout,
-            visited, depth + 1);
-    }
-    g_ptr_array_unref(includes);
-
-    char *with_main = g_strconcat("[main]\n", contents, NULL);
-    g_free(contents);
-    GKeyFile *key_file = g_key_file_new();
-    if (g_key_file_load_from_data(key_file, with_main, -1,
-                                  G_KEY_FILE_NONE, NULL)) {
-        menu_theme_apply_key_file(theme, key_file, include_layout);
-    }
-    g_key_file_unref(key_file);
-    g_free(with_main);
-}
-
-static void menu_theme_load_file(MenuTheme *theme, const char *path,
-                                 gboolean include_layout)
-{
-    GHashTable *visited = g_hash_table_new_full(
-        g_str_hash, g_str_equal, g_free, NULL);
-    menu_theme_load_file_recursive(theme, path, include_layout, visited, 0);
-    g_hash_table_unref(visited);
-}
-
-static void menu_theme_load(MenuTheme *theme)
-{
-    menu_theme_defaults(theme);
-    char *dir = g_build_filename(g_get_user_config_dir(), "fuzzel", NULL);
-    char *config = g_build_filename(dir, "fuzzel.ini", NULL);
-    if (g_file_test(config, G_FILE_TEST_IS_REGULAR)) {
-        menu_theme_load_file(theme, config, TRUE);
-        g_free(config);
-        g_free(dir);
-        return;
-    }
-    g_free(config);
-    g_free(dir);
-
-    const char *const *system_dirs = g_get_system_config_dirs();
-    for (guint i = 0; system_dirs[i] != NULL; i++) {
-        config = g_build_filename(system_dirs[i], "fuzzel", "fuzzel.ini",
-                                  NULL);
-        if (g_file_test(config, G_FILE_TEST_IS_REGULAR)) {
-            menu_theme_load_file(theme, config, TRUE);
-            g_free(config);
-            return;
-        }
-        g_free(config);
-    }
 }
 
 static char *css_color(const char value[16])
@@ -662,18 +451,10 @@ static void on_selection_changed(GtkListBox *box, gpointer user_data)
 
 static gboolean input_value_valid(MenuState *state, const char *value)
 {
-    TuiField *field = &state->fields[state->active_field];
-    if (field->type == TUI_UINT) {
-        if (value == NULL || value[0] == '\0') return FALSE;
-        errno = 0;
-        char *end = NULL;
-        guint64 parsed = g_ascii_strtoull(value, &end, 10);
-        return errno == 0 && end != value && *end == '\0' &&
-               parsed >= field->min && parsed <= field->max;
-    }
-    if (field->type == TUI_COLOR) return tui_color_value_valid(value);
-    return value != NULL;
+    return tui_field_input_valid(&state->fields[state->active_field],
+                                   value);
 }
+
 
 static void menu_update_input_action(MenuState *state)
 {
@@ -711,45 +492,58 @@ static void on_search_changed(GtkEditable *editable, gpointer user_data)
 
 static gboolean menu_save(MenuState *state)
 {
-    if (state->config->config_path[0] == '\0') {
-        char *path = seekey_default_save_path();
-        if (strlen(path) >= sizeof(state->config->config_path)) {
-            g_printerr("seekey: default config path is too long\n");
-            g_free(path);
-            return FALSE;
-        }
-        g_strlcpy(state->config->config_path, path,
-                  sizeof(state->config->config_path));
-        g_free(path);
-    }
-    GError *error = NULL;
-    if (!seekey_config_save(state->config, &error)) {
-        g_printerr("seekey: %s\n", error->message);
-        g_clear_error(&error);
+    if (!seekey_menu_save(state->config)) {
         return FALSE;
     }
     state->dirty = FALSE;
     return TRUE;
 }
 
+gboolean seekey_menu_save(SeekeyConfig *config)
+{
+    if (config->config_path[0] == '\0') {
+        char *path = seekey_default_save_path();
+        if (strlen(path) >= sizeof(config->config_path)) {
+            g_printerr("seekey: default config path is too long\n");
+            g_free(path);
+            return FALSE;
+        }
+        g_strlcpy(config->config_path, path, sizeof(config->config_path));
+        g_free(path);
+    }
+    GError *error = NULL;
+    if (!seekey_config_save(config, &error)) {
+        g_printerr("seekey: %s\n", error->message);
+        g_clear_error(&error);
+        return FALSE;
+    }
+    return TRUE;
+}
+
 static gboolean menu_launch_overlay(MenuState *state)
+{
+    return seekey_menu_launch_overlay(state->config);
+}
+
+gboolean seekey_menu_launch_overlay(const SeekeyConfig *config)
 {
     char *executable = g_file_read_link("/proc/self/exe", NULL);
     if (executable == NULL) executable = g_find_program_in_path("seekey");
     if (executable == NULL) executable = g_strdup("seekey");
-    char *argv[6] = {executable, NULL, NULL, NULL, NULL, NULL};
+    const char *argv[6] = {executable, NULL, NULL, NULL, NULL, NULL};
     guint next = 1;
-    if (state->config->config_path[0] != '\0') {
+    if (config->config_path[0] != '\0') {
         argv[next++] = "--config";
-        argv[next++] = state->config->config_path;
+        argv[next++] = config->config_path;
     }
-    if (state->config->matugen_path[0] != '\0') {
+    if (config->matugen_path[0] != '\0') {
         argv[next++] = "--matugen";
-        argv[next++] = state->config->matugen_path;
+        argv[next++] = config->matugen_path;
     }
     GError *error = NULL;
-    gboolean ok = g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH,
-                                NULL, NULL, NULL, &error);
+    gboolean ok = g_spawn_async(NULL, (char **)argv, NULL,
+                                G_SPAWN_SEARCH_PATH, NULL, NULL, NULL,
+                                &error);
     if (!ok) {
         g_printerr("seekey: %s\n", error->message);
         g_clear_error(&error);
@@ -771,6 +565,11 @@ static GApplication *menu_overlay_proxy(GError **error)
 
 static gboolean menu_overlay_is_running(void)
 {
+    return seekey_menu_overlay_running();
+}
+
+gboolean seekey_menu_overlay_running(void)
+{
     GError *error = NULL;
     gboolean running = FALSE;
     if (!seekey_overlay_query_running(&running, &error)) {
@@ -784,6 +583,11 @@ static gboolean menu_overlay_is_running(void)
 }
 
 static gboolean menu_stop_overlay(GError **error)
+{
+    return seekey_menu_stop_overlay(error);
+}
+
+gboolean seekey_menu_stop_overlay(GError **error)
 {
     GApplication *proxy = menu_overlay_proxy(error);
     if (proxy == NULL) return FALSE;
@@ -829,6 +633,11 @@ static gboolean menu_stop_overlay(GError **error)
 
 static void save_desktop_preference(gboolean show_menu)
 {
+    seekey_menu_save_desktop_preference(show_menu);
+}
+
+void seekey_menu_save_desktop_preference(gboolean show_menu)
+{
     SeekeyWindowState saved;
     seekey_window_state_load(&saved, NULL);
     saved.desktop_preference_set = TRUE;
@@ -868,7 +677,7 @@ static void menu_show_root(MenuState *state)
         menu_add_action(state, MENU_ACTION_START, _("Start key overlay"),
                         state->dirty ? _("Save first") : NULL);
     }
-    gboolean matugen_available = menu_matugen_available(state->config);
+    gboolean matugen_available = seekey_menu_matugen_available(state->config);
     GtkWidget *matugen_row = menu_add_action(
         state, MENU_ACTION_APPLY_MATUGEN, _("Use Matugen colors"),
         !matugen_available
@@ -1118,11 +927,7 @@ static void menu_apply_input(MenuState *state)
 {
     const char *value = gtk_editable_get_text(GTK_EDITABLE(state->search));
     if (!input_value_valid(state, value)) return;
-    TuiField *field = &state->fields[state->active_field];
-    if (field->type == TUI_UINT)
-        *field->uint_target = (guint)g_ascii_strtoull(value, NULL, 10);
-    else
-        g_strlcpy(field->string_target, value, field->string_size);
+    tui_field_apply_input(&state->fields[state->active_field], value);
     state->dirty = TRUE;
     gtk_widget_remove_css_class(state->search, "fuzzel-invalid");
     menu_show_group(state, state->active_group);
@@ -1418,13 +1223,28 @@ gboolean seekey_config_gui_run(SeekeyConfig *config,
                                gboolean first_desktop_launch,
                                GError **error)
 {
+    /* Prefer a real fuzzel menu when the binary is present and usable;
+     * the built-in GTK menu below is the fallback. */
+    GError *fuzzel_error = NULL;
+    if (seekey_fuzzel_menu_run(config, first_desktop_launch, &fuzzel_error)) {
+        return TRUE;
+    }
+    if (fuzzel_error != NULL) {
+        g_printerr("seekey: %s; using the built-in menu\n",
+                   fuzzel_error->message);
+        g_clear_error(&fuzzel_error);
+    }
+
     MenuState state = {
         .config = config,
         .first_desktop_launch = first_desktop_launch,
         .overlay_running = menu_overlay_is_running(),
     };
     if (!state.overlay_running) menu_start_preview(&state);
-    menu_theme_load(&state.theme);
+    /* The fallback menu always uses the built-in theme; with fuzzel
+     * installed, the fuzzel menu above applies the user's fuzzel.ini on
+     * its own. */
+    menu_theme_defaults(&state.theme);
     state.actions = g_ptr_array_new_with_free_func(menu_action_free);
     state.app = gtk_application_new("dev.seekey.Config",
                                     G_APPLICATION_NON_UNIQUE);

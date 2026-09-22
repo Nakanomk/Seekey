@@ -315,6 +315,59 @@ static void test_color_value_validation(void)
     TEST_ASSERT_FALSE(tui_color_value_valid("@matugen:"));
 }
 
+static void test_field_input_uint_validation_and_apply(void)
+{
+    guint value = 5;
+    TuiField field = {
+        .type = TUI_UINT,
+        .uint_target = &value,
+        .min = 1,
+        .max = 10,
+    };
+
+    TEST_ASSERT_TRUE(tui_field_input_valid(&field, "10"));
+    TEST_ASSERT_FALSE(tui_field_input_valid(&field, "11"));
+    TEST_ASSERT_FALSE(tui_field_input_valid(&field, "5x"));
+    TEST_ASSERT_FALSE(tui_field_input_valid(&field, ""));
+
+    tui_field_apply_input(&field, "11");
+    TEST_ASSERT_EQUAL_UINT(5, value);
+    tui_field_apply_input(&field, "10");
+    TEST_ASSERT_EQUAL_UINT(10, value);
+}
+
+static void test_field_input_rejects_string_truncation(void)
+{
+    char value[8] = "old";
+    TuiField field = {
+        .type = TUI_STRING,
+        .string_target = value,
+        .string_size = sizeof(value),
+    };
+
+    TEST_ASSERT_TRUE(tui_field_input_valid(&field, "1234567"));
+    TEST_ASSERT_FALSE(tui_field_input_valid(&field, "12345678"));
+
+    tui_field_apply_input(&field, "12345678");
+    TEST_ASSERT_EQUAL_STRING("old", value);
+    tui_field_apply_input(&field, "new");
+    TEST_ASSERT_EQUAL_STRING("new", value);
+}
+
+static void test_field_input_checks_color_capacity(void)
+{
+    char value[16] = "#ffffff";
+    TuiField field = {
+        .type = TUI_COLOR,
+        .string_target = value,
+        .string_size = sizeof(value),
+    };
+
+    TEST_ASSERT_TRUE(tui_color_value_valid("@matugen:surface"));
+    TEST_ASSERT_FALSE(tui_field_input_valid(&field, "@matugen:surface"));
+    TEST_ASSERT_TRUE(tui_field_input_valid(&field, "#123456"));
+}
+
 static void test_reset_field_uint(void)
 {
     SeekeyConfig c;
@@ -440,6 +493,9 @@ int run_tui_tests(void)
     RUN_TEST(test_nearest_color_closest_pick);
     RUN_TEST(test_nearest_color_handles_null);
     RUN_TEST(test_color_value_validation);
+    RUN_TEST(test_field_input_uint_validation_and_apply);
+    RUN_TEST(test_field_input_rejects_string_truncation);
+    RUN_TEST(test_field_input_checks_color_capacity);
     RUN_TEST(test_reset_field_uint);
     RUN_TEST(test_reset_field_bool);
     RUN_TEST(test_reset_field_string);

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: seekey 0.2.3\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
-"POT-Creation-Date: 2026-08-10 01:50+0800\n"
+"POT-Creation-Date: 2026-09-22 20:01+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -160,129 +160,146 @@ msgid ""
 "the overlay\n"
 msgstr ""
 
-#: src/gui.c:688 src/gui.c:1040
+#: src/gui.c:491 src/gui.c:871
 msgid "Apply value"
 msgstr ""
 
-#: src/gui.c:689
+#: src/gui.c:492 src/fuzzel_menu.c:456
 msgid "Invalid value"
 msgstr ""
 
-#: src/gui.c:844
+#: src/gui.c:675 src/fuzzel_menu.c:739
 msgid "First launch"
 msgstr ""
 
-#: src/gui.c:844
+#: src/gui.c:675
 msgid "Choose launcher behavior"
 msgstr ""
 
-#: src/gui.c:846 src/gui.c:1062
+#: src/gui.c:677 src/gui.c:893 src/fuzzel_menu.c:677 src/fuzzel_menu.c:730
 msgid "Open the Seekey menu"
 msgstr ""
 
-#: src/gui.c:847
+#: src/gui.c:678 src/fuzzel_menu.c:731
 msgid "Recommended"
 msgstr ""
 
-#: src/gui.c:852 src/gui.c:1072
+#: src/gui.c:683 src/gui.c:903 src/fuzzel_menu.c:685 src/fuzzel_menu.c:735
 msgid "Start the key overlay directly"
 msgstr ""
 
-#: src/gui.c:864
+#: src/gui.c:695
 msgid "Search actions and settings"
 msgstr ""
 
-#: src/gui.c:866
+#: src/gui.c:697 src/fuzzel_menu.c:783
 msgid "Stop key overlay"
 msgstr ""
 
-#: src/gui.c:868
+#: src/gui.c:699 src/fuzzel_menu.c:787 src/fuzzel_menu.c:789
 msgid "Start key overlay"
 msgstr ""
 
-#: src/gui.c:869
+#: src/gui.c:700 src/fuzzel_menu.c:788
 msgid "Save first"
 msgstr ""
 
-#: src/gui.c:873
+#: src/gui.c:704 src/fuzzel_menu.c:796 src/fuzzel_menu.c:798
 msgid "Use Matugen colors"
 msgstr ""
 
-#: src/gui.c:875
+#: src/gui.c:706
 msgid "colors.json missing"
 msgstr ""
 
-#: src/gui.c:877
+#: src/gui.c:708 src/fuzzel_menu.c:797
 msgid "Active"
 msgstr ""
 
-#: src/gui.c:878
+#: src/gui.c:709
 msgid "Available"
 msgstr ""
 
-#: src/gui.c:895
+#: src/gui.c:726 src/fuzzel_menu.c:816
 msgid "Not chosen"
 msgstr ""
 
-#: src/gui.c:897
+#: src/gui.c:728 src/fuzzel_menu.c:817
 msgid "Menu"
 msgstr ""
 
-#: src/gui.c:898
+#: src/gui.c:729 src/fuzzel_menu.c:817
 msgid "Overlay"
 msgstr ""
 
-#: src/gui.c:899 src/gui.c:1058
+#: src/gui.c:730 src/gui.c:889 src/fuzzel_menu.c:692 src/fuzzel_menu.c:819
 msgid "Desktop launcher"
 msgstr ""
 
-#: src/gui.c:901
+#: src/gui.c:732 src/fuzzel_menu.c:824
 msgid "Save configuration"
 msgstr ""
 
-#: src/gui.c:902
+#: src/gui.c:733 src/fuzzel_menu.c:825
 msgid "Unsaved"
 msgstr ""
 
-#: src/gui.c:902
+#: src/gui.c:733 src/fuzzel_menu.c:825
 msgid "Saved"
 msgstr ""
 
-#: src/gui.c:903
+#: src/gui.c:734 src/fuzzel_menu.c:826
 msgid "Reload configuration"
 msgstr ""
 
-#: src/gui.c:915
+#: src/gui.c:746
 msgid "Search settings"
 msgstr ""
 
-#: src/gui.c:926 src/gui.c:954 src/gui.c:978 src/gui.c:1028 src/gui.c:1041
-#: src/gui.c:1078
+#: src/gui.c:757 src/gui.c:785 src/gui.c:809 src/gui.c:859 src/gui.c:872
+#: src/gui.c:909 src/fuzzel_menu.c:409 src/fuzzel_menu.c:516
+#: src/fuzzel_menu.c:570 src/fuzzel_menu.c:633 src/fuzzel_menu.c:689
 msgid "← Back"
 msgstr ""
 
-#: src/gui.c:937 src/gui.c:1058
+#: src/gui.c:768 src/gui.c:889
 msgid "Choose a value"
 msgstr ""
 
-#: src/gui.c:940
+#: src/gui.c:771 src/fuzzel_menu.c:560
 msgid "Enabled"
 msgstr ""
 
-#: src/gui.c:949
+#: src/gui.c:780 src/fuzzel_menu.c:566
 msgid "Disabled"
 msgstr ""
 
-#: src/gui.c:965
+#: src/gui.c:796
 msgid "Search values"
 msgstr ""
 
-#: src/gui.c:1011
+#: src/gui.c:842
 msgid "Search installed fonts"
 msgstr ""
 
-#: src/gui.c:1017
+#: src/gui.c:848
 msgid "System default"
+msgstr ""
+
+#: src/fuzzel_menu.c:404
+msgid "Save changes and quit"
+msgstr ""
+
+#: src/fuzzel_menu.c:407
+msgid "Discard changes and quit"
+msgstr ""
+
+#: src/fuzzel_menu.c:412
+msgid "Unsaved changes"
+msgstr ""
+
+#: src/fuzzel_menu.c:827
+msgid "Quit"
 msgstr ""
 
 #: src/keynames.c:141

@@ -7,8 +7,8 @@
 #   2. Build seekey with `make`.
 #   3. Install the binary to ~/.local/bin (or /usr/local/bin with --system).
 #   4. Install the example config and desktop application entry.
-#   5. Install a udev rule so /dev/input/event* is readable by the `input`
-#      group, and add the current user to that group if needed.
+#   5. Install a udev rule that grants the active local session access to
+#      /dev/input/event*; persistent `input` group access is opt-in fallback.
 #
 # It does NOT install autostart entries; see the wiki (Autostart page) for
 # compositor-specific startup instructions.
@@ -31,6 +31,7 @@ UNINSTALL=false
 FORCE=false
 DRY_RUN=false
 INSTALL_DEPS=true
+USE_INPUT_GROUP=false
 
 usage() {
     cat <<EOF
@@ -39,7 +40,8 @@ Usage: ./install.sh [OPTIONS]
 Options:
   --user            Install to \$HOME/.local (default)
   --system          Install to /usr/local (requires sudo)
-  --no-input        Skip udev rule + input group setup
+  --no-input        Skip input-device access setup
+  --input-group     Also grant persistent access through the input group
   --force           Overwrite an existing Seekey udev rule
   --uninstall       Reverse a previous install
   --dry-run         Print what would be done, do nothing
@@ -50,7 +52,8 @@ After install:
   - Run 'seekey' to start
   - Run 'seekey --config-gui' to open graphical settings
   - Run 'seekey --config-tui' to edit settings
-  - Log out and back in for input group changes to take effect
+  - Active local sessions get input access through a udev/logind ACL
+  - If that is unavailable, rerun with --input-group and log out/in
 EOF
 }
 
@@ -59,6 +62,7 @@ while [[ $# -gt 0 ]]; do
         --user)        PREFIX="${HOME}/.local"; SYSTEM_INSTALL=false ;;
         --system)      PREFIX="/usr/local"; SYSTEM_INSTALL=true ;;
         --no-input)    SETUP_INPUT=false ;;
+        --input-group)   USE_INPUT_GROUP=true ;;
         --force)       FORCE=true ;;
         --uninstall)   UNINSTALL=true ;;
         --dry-run)     DRY_RUN=true ;;
@@ -86,6 +90,9 @@ if $SYSTEM_INSTALL; then
     INSTALL_CMD=("${ROOT_CMD[@]}")
 fi
 CURRENT_USER="${SUDO_USER:-${USER:-$(id -un)}}"
+RUNNING_USER="$(id -un)"
+UDEV_RULE_PATH="/etc/udev/rules.d/70-seekey-input.rules"
+LEGACY_UDEV_RULE_PATH="/etc/udev/rules.d/99-seekey.rules"
 
 # ---------- Logging helpers --------------------------------------------
 
@@ -137,38 +144,32 @@ case "$PM" in
         PM_INSTALL_DEPS_ARGS=(pacman -S --needed --noconfirm
                               gtk4 libevdev ncurses json-glib
                               gettext pkgconf gcc make)
-        PM_PRESENT() { pacman -Qi "$1" >/dev/null 2>&1; }
         ;;
     dnf)
         PM_INSTALL_DEPS_ARGS=(dnf install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel pkgconf-pkg-config
                               gettext gcc make)
-        PM_PRESENT() { rpm -q "$1" >/dev/null 2>&1; }
         ;;
     apt)
         PM_INSTALL_DEPS_ARGS=(apt install -y
                               libgtk-4-dev libevdev-dev libncurses-dev
                               libjson-glib-dev gettext pkg-config build-essential)
-        PM_PRESENT() { dpkg -s "$1" >/dev/null 2>&1; }
         ;;
     zypper)
         PM_INSTALL_DEPS_ARGS=(zypper install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel gettext-tools pkg-config gcc make)
-        PM_PRESENT() { rpm -q "$1" >/dev/null 2>&1; }
         ;;
     apk)
         PM_INSTALL_DEPS_ARGS=(apk add gtk4-dev libevdev-dev
                               ncurses-dev json-glib-dev pkgconf
                               gettext gcc make musl-dev)
-        PM_PRESENT() { apk info -e "$1" >/dev/null 2>&1; }
         ;;
     xbps-install)
         PM_INSTALL_DEPS_ARGS=(xbps-install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel gettext pkg-config gcc make)
-        PM_PRESENT() { xbps-query "$1" >/dev/null 2>&1; }
         ;;
     *)
         warn "Unknown package manager. Please install these manually:"
@@ -270,36 +271,82 @@ do_uninstall() {
         [[ -f "${mo}" ]] || continue
         run "${INSTALL_CMD[@]}" rm -f "${mo}"
     done
-    if [[ -f /etc/udev/rules.d/99-seekey.rules ]]; then
-        warn "Leaving /etc/udev/rules.d/99-seekey.rules in place"
-        warn "  (remove it manually if you no longer need it: sudo rm /etc/udev/rules.d/99-seekey.rules)"
+    if $SETUP_INPUT; then
+        remove_udev_rules
     fi
     ok "Uninstalled binary and data files"
     ok "Note: input group membership and your config were left untouched"
     exit 0
 }
 
-# ---------- udev rule + input group -----------------------------------
+# ---------- Input-device access ----------------------------------------
+
+is_seekey_udev_rule() {
+    local path="$1"
+    [[ -f "${path}" ]] && grep -q '^# [Ss]eekey:' "${path}"
+}
+
+reload_input_udev_rules() {
+    run "${ROOT_CMD[@]}" udevadm control --reload-rules
+    run "${ROOT_CMD[@]}" udevadm trigger --subsystem-match=input
+}
+
+remove_udev_rules() {
+    local removed=false rule_path
+    for rule_path in "${UDEV_RULE_PATH}" "${LEGACY_UDEV_RULE_PATH}"; do
+        if ! is_seekey_udev_rule "${rule_path}"; then
+            continue
+        fi
+        require_root_tool
+        log "Removing Seekey udev rule ${rule_path}"
+        run "${ROOT_CMD[@]}" rm -f "${rule_path}"
+        removed=true
+    done
+    if $removed; then
+        reload_input_udev_rules
+    fi
+}
 
 install_udev_rule() {
     require_root_tool
-    local rule_path="/etc/udev/rules.d/99-seekey.rules"
-    if [[ -f "${rule_path}" ]] && ! $FORCE; then
-        log "udev rule already present at ${rule_path} (use --force to overwrite)"
-        return
+    local source_path="${SCRIPT_DIR}/data/70-seekey-input.rules"
+    [[ -f "${source_path}" ]] || die "Missing udev rule: ${source_path}"
+
+    if is_seekey_udev_rule "${LEGACY_UDEV_RULE_PATH}"; then
+        log "Removing legacy udev rule ${LEGACY_UDEV_RULE_PATH}"
+        run "${ROOT_CMD[@]}" rm -f "${LEGACY_UDEV_RULE_PATH}"
     fi
-    local rule_content='# seekey: allow members of the input group to access /dev/input/event*
-KERNEL=="event*", SUBSYSTEM=="input", GROUP="input", MODE="0660"'
-    log "Installing udev rule to ${rule_path}"
-    if $DRY_RUN; then
-        printf '    $ %stee %s >/dev/null <<< <rule>\n' \
-            "${ROOT_CMD:+sudo }" "${rule_path}"
+
+    if [[ -f "${UDEV_RULE_PATH}" ]] && ! $FORCE; then
+        log "udev rule already present at ${UDEV_RULE_PATH} (use --force to overwrite)"
     else
-        printf '%s\n' "${rule_content}" | \
-            "${ROOT_CMD[@]}" tee "${rule_path}" >/dev/null
+        log "Installing active-session udev rule to ${UDEV_RULE_PATH}"
+        run "${ROOT_CMD[@]}" install -Dm644 "${source_path}" "${UDEV_RULE_PATH}"
     fi
-    run "${ROOT_CMD[@]}" udevadm control --reload-rules
-    run "${ROOT_CMD[@]}" udevadm trigger
+    reload_input_udev_rules
+}
+
+user_can_read_input_event() {
+    local path="$1"
+    if [[ "${RUNNING_USER}" == "${CURRENT_USER}" ]]; then
+        [[ -r "${path}" ]]
+    elif command -v runuser >/dev/null 2>&1; then
+        runuser -u "${CURRENT_USER}" -- test -r "${path}"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo -u "${CURRENT_USER}" test -r "${path}"
+    else
+        return 1
+    fi
+}
+
+input_events_are_readable() {
+    local found=false path
+    for path in /dev/input/event*; do
+        [[ -e "${path}" ]] || continue
+        found=true
+        user_can_read_input_event "${path}" || return 1
+    done
+    $found
 }
 
 setup_input_group() {
@@ -313,8 +360,25 @@ setup_input_group() {
     else
         log "Adding ${CURRENT_USER} to the 'input' group"
         run "${ROOT_CMD[@]}" usermod -aG input "${CURRENT_USER}"
-        warn "*** Log out and back in for the new group to take effect ***"
+        warn "*** Log out and back in for the input group to take effect ***"
     fi
+}
+
+setup_input_access() {
+    if $USE_INPUT_GROUP; then
+        setup_input_group
+        return
+    fi
+    if $DRY_RUN; then
+        log "Input access will use the active local session ACL"
+        return
+    fi
+    if input_events_are_readable; then
+        ok "Active local user can read input event devices"
+        return
+    fi
+    warn "Active-session input ACL is unavailable on this system."
+    warn "  Rerun with --input-group for the persistent group fallback."
 }
 
 # ---------- Build ------------------------------------------------------
@@ -380,7 +444,7 @@ install_files
 
 if $SETUP_INPUT; then
     install_udev_rule
-    setup_input_group
+    setup_input_access
 fi
 
 print_compositor_hints
@@ -390,9 +454,10 @@ ok "Done."
 echo "  Run:    ${BINDIR}/seekey"
 echo "  GUI:    ${BINDIR}/seekey --config-gui"
 echo "  TUI:    ${BINDIR}/seekey --config-tui"
-if $SETUP_INPUT && ! id -nG "${CURRENT_USER}" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
-    echo
-    warn "Don't forget to log out and back in so the 'input' group takes effect."
+if ! command -v fuzzel >/dev/null 2>&1; then
+    warn "fuzzel is not installed. The settings menu (--config-gui) will use"
+    warn "  the built-in fallback menu; install fuzzel for a native, themed"
+    warn "  menu that follows your fuzzel.ini."
 fi
 echo
 echo "  To uninstall: ${BINDIR}/seekey  ->  ./install.sh --uninstall"
