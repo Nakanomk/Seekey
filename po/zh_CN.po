@@ -4,9 +4,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: seekey 0.2.3\n"
+"Project-Id-Version: seekey 0.3.0\n"
 "Report-Msgid-Bugs-To: https://github.com/Nakanomk/seekey/issues\n"
-"POT-Creation-Date: 2026-09-22 20:01+0800\n"
+"POT-Creation-Date: 2026-09-22 20:34+0800\n"
 "PO-Revision-Date: 2026-08-03 02:10+0800\n"
 "Last-Translator: Seekey contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -175,145 +175,145 @@ msgid ""
 "the overlay\n"
 msgstr "seekey：配置预览正在运行；请先关闭菜单再启动按键浮层\n"
 
-#: src/gui.c:491 src/gui.c:871
+#: src/gui.c:469 src/gui.c:849
 msgid "Apply value"
 msgstr "应用此值"
 
-#: src/gui.c:492 src/fuzzel_menu.c:456
+#: src/gui.c:470 src/fuzzel_menu.c:447
 msgid "Invalid value"
 msgstr "值无效"
 
-#: src/gui.c:675 src/fuzzel_menu.c:739
+#: src/gui.c:653 src/fuzzel_menu.c:724
 msgid "First launch"
 msgstr "首次启动"
 
-#: src/gui.c:675
+#: src/gui.c:653
 msgid "Choose launcher behavior"
 msgstr "选择桌面入口行为"
 
-#: src/gui.c:677 src/gui.c:893 src/fuzzel_menu.c:677 src/fuzzel_menu.c:730
+#: src/gui.c:655 src/gui.c:871 src/fuzzel_menu.c:663 src/fuzzel_menu.c:716
 msgid "Open the Seekey menu"
 msgstr "打开 Seekey 菜单"
 
-#: src/gui.c:678 src/fuzzel_menu.c:731
+#: src/gui.c:656 src/fuzzel_menu.c:717
 msgid "Recommended"
 msgstr "推荐"
 
-#: src/gui.c:683 src/gui.c:903 src/fuzzel_menu.c:685 src/fuzzel_menu.c:735
+#: src/gui.c:661 src/gui.c:881 src/fuzzel_menu.c:671 src/fuzzel_menu.c:720
 msgid "Start the key overlay directly"
 msgstr "直接启动按键浮层"
 
-#: src/gui.c:695
+#: src/gui.c:673
 msgid "Search actions and settings"
 msgstr "搜索操作和设置"
 
-#: src/gui.c:697 src/fuzzel_menu.c:783
+#: src/gui.c:675 src/fuzzel_menu.c:768
 msgid "Stop key overlay"
 msgstr "关闭按键浮层"
 
-#: src/gui.c:699 src/fuzzel_menu.c:787 src/fuzzel_menu.c:789
+#: src/gui.c:677 src/fuzzel_menu.c:771 src/fuzzel_menu.c:773
 msgid "Start key overlay"
 msgstr "启动按键浮层"
 
-#: src/gui.c:700 src/fuzzel_menu.c:788
+#: src/gui.c:678 src/fuzzel_menu.c:772
 msgid "Save first"
 msgstr "将先保存"
 
-#: src/gui.c:704 src/fuzzel_menu.c:796 src/fuzzel_menu.c:798
+#: src/gui.c:682 src/fuzzel_menu.c:780 src/fuzzel_menu.c:782
 msgid "Use Matugen colors"
 msgstr "使用 Matugen 配色"
 
-#: src/gui.c:706
+#: src/gui.c:684
 msgid "colors.json missing"
 msgstr "缺少 colors.json"
 
-#: src/gui.c:708 src/fuzzel_menu.c:797
+#: src/gui.c:686 src/fuzzel_menu.c:781
 msgid "Active"
 msgstr "已启用"
 
-#: src/gui.c:709
+#: src/gui.c:687
 msgid "Available"
 msgstr "可用"
 
-#: src/gui.c:726 src/fuzzel_menu.c:816
+#: src/gui.c:704 src/fuzzel_menu.c:797
 msgid "Not chosen"
 msgstr "尚未选择"
 
-#: src/gui.c:728 src/fuzzel_menu.c:817
+#: src/gui.c:706 src/fuzzel_menu.c:798
 msgid "Menu"
 msgstr "菜单"
 
-#: src/gui.c:729 src/fuzzel_menu.c:817
+#: src/gui.c:707 src/fuzzel_menu.c:799
 msgid "Overlay"
 msgstr "按键浮层"
 
-#: src/gui.c:730 src/gui.c:889 src/fuzzel_menu.c:692 src/fuzzel_menu.c:819
+#: src/gui.c:708 src/gui.c:867 src/fuzzel_menu.c:678 src/fuzzel_menu.c:801
 msgid "Desktop launcher"
 msgstr "桌面启动器"
 
-#: src/gui.c:732 src/fuzzel_menu.c:824
+#: src/gui.c:710 src/fuzzel_menu.c:805
 msgid "Save configuration"
 msgstr "保存配置"
 
-#: src/gui.c:733 src/fuzzel_menu.c:825
+#: src/gui.c:711 src/fuzzel_menu.c:806
 msgid "Unsaved"
 msgstr "未保存"
 
-#: src/gui.c:733 src/fuzzel_menu.c:825
+#: src/gui.c:711 src/fuzzel_menu.c:806
 msgid "Saved"
 msgstr "已保存"
 
-#: src/gui.c:734 src/fuzzel_menu.c:826
+#: src/gui.c:712 src/fuzzel_menu.c:807
 msgid "Reload configuration"
 msgstr "重新加载配置"
 
-#: src/gui.c:746
+#: src/gui.c:724
 msgid "Search settings"
 msgstr "搜索设置"
 
-#: src/gui.c:757 src/gui.c:785 src/gui.c:809 src/gui.c:859 src/gui.c:872
-#: src/gui.c:909 src/fuzzel_menu.c:409 src/fuzzel_menu.c:516
-#: src/fuzzel_menu.c:570 src/fuzzel_menu.c:633 src/fuzzel_menu.c:689
+#: src/gui.c:735 src/gui.c:763 src/gui.c:787 src/gui.c:837 src/gui.c:850
+#: src/gui.c:887 src/fuzzel_menu.c:401 src/fuzzel_menu.c:507
+#: src/fuzzel_menu.c:557 src/fuzzel_menu.c:619 src/fuzzel_menu.c:675
 msgid "← Back"
 msgstr "← 返回"
 
-#: src/gui.c:768 src/gui.c:889
+#: src/gui.c:746 src/gui.c:867
 msgid "Choose a value"
 msgstr "选择一个值"
 
-#: src/gui.c:771 src/fuzzel_menu.c:560
+#: src/gui.c:749 src/fuzzel_menu.c:548
 msgid "Enabled"
 msgstr "启用"
 
-#: src/gui.c:780 src/fuzzel_menu.c:566
+#: src/gui.c:758 src/fuzzel_menu.c:553
 msgid "Disabled"
 msgstr "禁用"
 
-#: src/gui.c:796
+#: src/gui.c:774
 msgid "Search values"
 msgstr "搜索可选值"
 
-#: src/gui.c:842
+#: src/gui.c:820
 msgid "Search installed fonts"
 msgstr "搜索已安装字体"
 
-#: src/gui.c:848
+#: src/gui.c:826
 msgid "System default"
 msgstr "系统默认"
 
-#: src/fuzzel_menu.c:404
+#: src/fuzzel_menu.c:396
 msgid "Save changes and quit"
 msgstr "保存并退出"
 
-#: src/fuzzel_menu.c:407
+#: src/fuzzel_menu.c:399
 msgid "Discard changes and quit"
 msgstr "放弃修改并退出"
 
-#: src/fuzzel_menu.c:412
+#: src/fuzzel_menu.c:404
 msgid "Unsaved changes"
 msgstr "有未保存的修改"
 
-#: src/fuzzel_menu.c:827
+#: src/fuzzel_menu.c:808
 msgid "Quit"
 msgstr "退出"
 
