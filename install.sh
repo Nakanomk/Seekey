@@ -149,7 +149,7 @@ case "$PM" in
         PM_INSTALL_DEPS_ARGS=(dnf install -y
                               gtk4-devel libevdev-devel ncurses-devel
                               json-glib-devel pkgconf-pkg-config
-                              gettext gcc make)
+                              gettext gcc make gtk4-layer-shell-devel)
         ;;
     apt)
         PM_INSTALL_DEPS_ARGS=(apt install -y
@@ -188,8 +188,12 @@ check_build_deps() {
     for tool in pkg-config make gcc xgettext msgmerge msgfmt; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
+    local common_deps=(gtk4 libevdev ncursesw json-glib-1.0)
+    if [[ "$PM" == "dnf" ]]; then
+        common_deps+=(gtk4-layer-shell-0)
+    fi
     if command -v pkg-config >/dev/null 2>&1; then
-        for pkg in gtk4 libevdev ncursesw json-glib-1.0; do
+        for pkg in "${common_deps[@]}"; do
             pkg-config --exists "$pkg" 2>/dev/null || missing+=("$pkg")
         done
     fi
