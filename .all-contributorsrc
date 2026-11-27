@@ -1,0 +1,53 @@
+{
+  "projectName": "Seekey",
+  "projectOwner": "Nakanomk",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md",
+    "README.zh-CN.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "Nakanomk",
+      "name": "Nakanosan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/56832666?v=4",
+      "profile": "https://github.com/Nakanomk",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "fzhnf",
+      "name": "Tima Gutmensch",
+      "avatar_url": "https://avatars.githubusercontent.com/u/93417786?v=4",
+      "profile": "https://github.com/fzhnf",
+      "contributions": [
+        {
+          "type": "code",
+          "url": "https://github.com/Nakanomk/Seekey/pull/1"
+        }
+      ]
+    },
+    {
+      "login": "reivigloss9",
+      "name": "reivigloss9",
+      "avatar_url": "https://avatars.githubusercontent.com/u/189671960?v=4",
+      "profile": "https://github.com/reivigloss9",
+      "contributions": [
+        {
+          "type": "bug",
+          "url": "https://github.com/Nakanomk/Seekey/discussions/2"
+        },
+        {
+          "type": "code",
+          "url": "https://github.com/Nakanomk/Seekey/discussions/2"
+        }
+      ]
+    }
+  ]
+}

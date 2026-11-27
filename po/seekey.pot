@@ -68,16 +68,14 @@ msgstr ""
 
 #: src/main.c:594
 msgid ""
-"  hint: KWin (default KDE Plasma) does not support wlr-layer-shell.  seekey "
-"falls back to a normal window. See README §GNOME/KDE  fallback for window "
-"rules to pin position and raise."
+"  hint: KWin on Wayland supports layer-shell; install gtk4-layer-shell"
+" and use layer-shell=auto to enable edge anchoring."
 msgstr ""
 
 #: src/main.c:597
 msgid ""
-"  hint: GNOME does not support wlr-layer-shell.  seekey falls back to a "
-"normal window. See README §GNOME/KDE  fallback for window rules to pin "
-"position and raise."
+"  hint: GNOME does not support layer-shell; fallback window placement"
+" is controlled by the desktop. See the Window Position wiki for limitations."
 msgstr ""
 
 #: src/main.c:664
@@ -103,15 +101,10 @@ msgstr ""
 
 #: src/main.c:684
 msgid ""
-"seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
-"seekey:       The following settings have NO EFFECT in fallback mode:\n"
-"seekey:         - style.align / margin / margin-horizontal (no edge "
-"anchoring)\n"
-"seekey:         - saved window position (compositor controls placement)\n"
-"seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
-"seekey:       Sway, river) or install gtk4-layer-shell on a supported "
-"system.\n"
-"seekey:       See README §Compatibility model for details.\n"
+"seekey: NOTE: layer-shell is not active; the compositor controls window placement.\n"
+"seekey:       Edge anchoring (style.align / margin / margin-horizontal) and saved monitor selection are unavailable.\n"
+"seekey:       Check the reason above and the layer-shell setting. Supported compositors also need gtk4-layer-shell.\n"
+"seekey:       See https://github.com/Nakanomk/Seekey/wiki/Window-Position for details.\n"
 msgstr ""
 
 #: src/main.c:734 src/main.c:898 src/main.c:922 src/main.c:932 src/main.c:942

@@ -590,13 +590,10 @@ static void detect_compositor(void)
         {"river", N_("  hint: river supports wlr-layer-shell; layer-shell=auto works well.")},
         {"wayfire", N_("  hint: Wayfire supports wlr-layer-shell; layer-shell=auto works well.")},
         {"labwc", N_("  hint: labwc supports wlr-layer-shell; layer-shell=auto works well.")},
-        /* Fallback-only compositors after. */
-        {"kde", N_("  hint: KWin (default KDE Plasma) does not support wlr-layer-shell."
-                "  seekey falls back to a normal window. See README §GNOME/KDE"
-                "  fallback for window rules to pin position and raise.")},
-        {"gnome", N_("  hint: GNOME does not support wlr-layer-shell."
-                  "  seekey falls back to a normal window. See README §GNOME/KDE"
-                  "  fallback for window rules to pin position and raise.")},
+        {"kde", N_("  hint: KWin on Wayland supports layer-shell; install gtk4-layer-shell"
+                " and use layer-shell=auto to enable edge anchoring.")},
+        {"gnome", N_("  hint: GNOME does not support layer-shell; fallback window placement"
+                  " is controlled by the desktop. See the Window Position wiki for limitations.")},
     };
 
     for (gsize i = 0; i < G_N_ELEMENTS(hints); i++) {
@@ -627,6 +624,8 @@ static void activate(GtkApplication *app, gpointer user_data)
                               (gpointer *)&state->window);
     gtk_window_set_title(GTK_WINDOW(window), "Seekey");
     gtk_widget_add_css_class(window, "seekey-overlay");
+    /* User themes can give GTK's generic background class an opaque fill. */
+    gtk_widget_remove_css_class(window, "background");
     /* The GApplication ID "dev.seekey" (set below) becomes the
      * Wayland `app_id` and the X11 `WM_CLASS` (dots → underscores:
      * `dev_seekey`). KWin / Hyprland window rules and GNOME extensions
@@ -681,13 +680,10 @@ static void activate(GtkApplication *app, gpointer user_data)
             return;
         }
         g_printerr(_("seekey: using fallback window: %s\n"), layer_error->message);
-        g_printerr(_("seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
-                     "seekey:       The following settings have NO EFFECT in fallback mode:\n"
-                     "seekey:         - style.align / margin / margin-horizontal (no edge anchoring)\n"
-                     "seekey:         - saved window position (compositor controls placement)\n"
-                     "seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
-                     "seekey:       Sway, river) or install gtk4-layer-shell on a supported system.\n"
-                     "seekey:       See README §Compatibility model for details.\n"));
+        g_printerr(_("seekey: NOTE: layer-shell is not active; the compositor controls window placement.\n"
+                     "seekey:       Edge anchoring (style.align / margin / margin-horizontal) and saved monitor selection are unavailable.\n"
+                     "seekey:       Check the reason above and the layer-shell setting. Supported compositors also need gtk4-layer-shell.\n"
+                     "seekey:       See https://github.com/Nakanomk/Seekey/wiki/Window-Position for details.\n"));
         g_clear_error(&layer_error);
     }
 

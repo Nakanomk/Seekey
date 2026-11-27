@@ -71,21 +71,19 @@ msgstr "  提示：labwc 支持 wlr-layer-shell，layer-shell=auto 可正常工�
 
 #: src/main.c:594
 msgid ""
-"  hint: KWin (default KDE Plasma) does not support wlr-layer-shell.  seekey "
-"falls back to a normal window. See README §GNOME/KDE  fallback for window "
-"rules to pin position and raise."
+"  hint: KWin on Wayland supports layer-shell; install gtk4-layer-shell"
+" and use layer-shell=auto to enable edge anchoring."
 msgstr ""
-"  提示：KWin（默认的 KDE Plasma）不支持 wlr-layer-shell，seekey 退回到普通窗"
-"口模式。固定位置 / 置顶方法见 README §GNOME/KDE fallback。"
+"  提示：Wayland 下的 KWin 支持 layer-shell；安装 gtk4-layer-shell"
+" 并使用 layer-shell=auto 即可启用边缘锚定。"
 
 #: src/main.c:597
 msgid ""
-"  hint: GNOME does not support wlr-layer-shell.  seekey falls back to a "
-"normal window. See README §GNOME/KDE  fallback for window rules to pin "
-"position and raise."
+"  hint: GNOME does not support layer-shell; fallback window placement"
+" is controlled by the desktop. See the Window Position wiki for limitations."
 msgstr ""
-"  提示：GNOME 不支持 wlr-layer-shell，seekey 退回到普通窗口模式。固定位置 / "
-"置顶方法见 README §GNOME/KDE fallback。"
+"  提示：GNOME 不支持 layer-shell，降级窗口的位置由桌面控制。"
+" 限制说明见 Wiki 的“窗口位置”页面。"
 
 #: src/main.c:664
 #, c-format
@@ -111,23 +109,15 @@ msgstr "seekey：使用 fallback 窗口：%s\n"
 
 #: src/main.c:684
 msgid ""
-"seekey: NOTE: you are not running under a wlr-layer-shell compositor.\n"
-"seekey:       The following settings have NO EFFECT in fallback mode:\n"
-"seekey:         - style.align / margin / margin-horizontal (no edge "
-"anchoring)\n"
-"seekey:         - saved window position (compositor controls placement)\n"
-"seekey:       To enable them, use a layer-shell compositor (niri, Hyprland,\n"
-"seekey:       Sway, river) or install gtk4-layer-shell on a supported "
-"system.\n"
-"seekey:       See README §Compatibility model for details.\n"
+"seekey: NOTE: layer-shell is not active; the compositor controls window placement.\n"
+"seekey:       Edge anchoring (style.align / margin / margin-horizontal) and saved monitor selection are unavailable.\n"
+"seekey:       Check the reason above and the layer-shell setting. Supported compositors also need gtk4-layer-shell.\n"
+"seekey:       See https://github.com/Nakanomk/Seekey/wiki/Window-Position for details.\n"
 msgstr ""
-"seekey：注意：你当前不在 wlr-layer-shell 合成器下。\n"
-"seekey：       以下设置在 fallback 模式下不生效：\n"
-"seekey：         - style.align / margin / margin-horizontal（无法锚定边缘）\n"
-"seekey：         - 保存的窗口位置（由合成器决定）\n"
-"seekey：       想启用这些，请改用 layer-shell 合成器（niri、Hyprland、\n"
-"seekey：       Sway、river），或在支持的系统上安装 gtk4-layer-shell。\n"
-"seekey：       详见 README §Compatibility model。\n"
+"seekey：注意：layer-shell 未启用，窗口位置由合成器控制。\n"
+"seekey：       边缘锚定（style.align / margin / margin-horizontal）和保存的显示器选择不可用。\n"
+"seekey：       请检查上面的原因及 layer-shell 设置。支持该协议的合成器也需要 gtk4-layer-shell。\n"
+"seekey：       详见 https://github.com/Nakanomk/Seekey/wiki/Window-Position。\n"
 
 #: src/main.c:734 src/main.c:898 src/main.c:922 src/main.c:932 src/main.c:942
 #: src/main.c:954 src/main.c:968 src/main.c:983

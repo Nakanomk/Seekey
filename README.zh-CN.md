@@ -14,6 +14,9 @@
 ![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%2F%20Wayland-FCC624.svg)
 ![GTK4](https://img.shields.io/badge/GTK-4-7FE7FE.svg)
 ![Version](https://img.shields.io/badge/version-0.3.0-44cc11.svg)
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 **[English](README.md)** · **[简体中文](README.zh-CN.md)** · **[📖 Wiki](https://github.com/Nakanomk/Seekey/wiki)**
 
@@ -152,6 +155,38 @@ README 故意写得很短，其余内容都在
 
 **参考**
 - [问题排查](https://github.com/Nakanomk/Seekey/wiki/Troubleshooting) —— 输入权限、降级模式、没有气泡等
+
+---
+
+<a id="contributors-"></a>
+
+## 贡献者
+
+感谢贡献代码、文档、问题报告和修复方案的每个人。项目使用
+[All Contributors](https://allcontributors.org/) 记录 Git 提交统计之外的贡献；
+下方图标链接到对应贡献。
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Nakanomk"><img src="https://avatars.githubusercontent.com/u/56832666?v=4&size=100" width="100px" height="100px" alt="Nakanosan"/><br /><sub><b>Nakanosan</b></sub></a><br /><a href="https://github.com/Nakanomk/Seekey/commits?author=Nakanomk" title="Code">💻</a> <a href="https://github.com/Nakanomk/Seekey/commits?author=Nakanomk" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/fzhnf"><img src="https://avatars.githubusercontent.com/u/93417786?v=4&size=100" width="100px" height="100px" alt="Tima Gutmensch"/><br /><sub><b>Tima Gutmensch</b></sub></a><br /><a href="https://github.com/Nakanomk/Seekey/pull/1" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/reivigloss9"><img src="https://avatars.githubusercontent.com/u/189671960?v=4&size=100" width="100px" height="100px" alt="reivigloss9"/><br /><sub><b>reivigloss9</b></sub></a><br /><a href="https://github.com/Nakanomk/Seekey/discussions/2" title="Bug reports">🐛</a> <a href="https://github.com/Nakanomk/Seekey/discussions/2" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+维护者修改 `.all-contributorsrc` 后，可运行
+`npx --yes --package=@all-contributors/cli@7.1.0 all-contributors generate`
+同步生成中英文名单。只有维护名单时需要 Node.js，Seekey 的构建和运行不依赖它。
 
 ---
 
