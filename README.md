@@ -60,7 +60,9 @@ make                       # build
 ./seekey                   # run
 ```
 
-Press some keys — bubbles appear at the bottom of the screen. That's it.
+Press a key to see its bubble. To also show mouse clicks, touchpad taps and
+scrolling, run `./seekey --show-mouse` in bubble mode, or set `show-mouse=true`
+under `[general]`. Moving the pointer alone does not create a bubble.
 
 > ⚠️ **No bubbles on first run?** You need read access to
 > `/dev/input/event*`. The easiest fix is `./install.sh`, which installs an

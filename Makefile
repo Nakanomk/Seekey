@@ -3,7 +3,8 @@ PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -O2 -g
 WARNINGS := -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
-PKGS := gtk4 libevdev gio-unix-2.0 ncursesw json-glib-1.0
+TOUCHPAD_PKG := 'libinput >= 1.19'
+PKGS := gtk4 libevdev $(TOUCHPAD_PKG) gio-unix-2.0 ncursesw json-glib-1.0
 LIBS := -ldl
 
 # gtk4-layer-shell must be linked before GTK4 (which pulls in
@@ -54,15 +55,15 @@ MO_FILES := $(patsubst %,locale/%/LC_MESSAGES/$(DOMAIN).mo,\
              $(shell cat $(LINGUAS_FILE) 2>/dev/null))
 
 # Test target uses the same flags but defines SEEKEY_TEST so tui.c
-# skips its ncurses-using code, and links with glib + Unity only.
+# skips its ncurses-using code; input fixtures use libevdev without devices.
 TEST_BIN := build/test_runner
 TEST_DEFS := -DSEEKEY_TEST -DG_DISABLE_ASSERT
 TEST_CFLAGS := $(WARNINGS) -O2 -g -Isrc -Itests/vendor/unity $(TEST_DEFS) \
-                $(shell $(PKG_CONFIG) --cflags glib-2.0 gobject-2.0 gio-2.0 gtk4 json-glib-1.0)
+                $(shell $(PKG_CONFIG) --cflags glib-2.0 gobject-2.0 gio-2.0 gtk4 json-glib-1.0 libevdev $(TOUCHPAD_PKG))
 TEST_SRCS := tests/test_main.c tests/test_config.c tests/test_tui.c \
-             tests/test_keynames.c tests/test_style.c tests/test_window_state.c \
+             tests/test_keynames.c tests/test_input.c tests/test_style.c tests/test_window_state.c \
              tests/test_runtime_lock.c tests/test_preview_session.c tests/test_helpers.c
-TEST_LDLIBS := $(shell $(PKG_CONFIG) --libs glib-2.0 gobject-2.0 gio-2.0 json-glib-1.0 gtk4) -lm
+TEST_LDLIBS := $(shell $(PKG_CONFIG) --libs glib-2.0 gobject-2.0 gio-2.0 json-glib-1.0 gtk4 libevdev $(TOUCHPAD_PKG)) -lm
 
 .PHONY: all clean install uninstall check format pot mo
 
@@ -122,7 +123,7 @@ format:
 	}
 	clang-format --style=file -i src/*.c src/*.h tests/*.c tests/*.h
 
-$(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/style.c src/tui.c src/keynames.c src/window_state.c src/runtime_lock.c src/preview_session.c
+$(TEST_BIN): $(TEST_SRCS) tests/vendor/unity/unity.c src/config.c src/style.c src/tui.c src/keynames.c src/window_state.c src/runtime_lock.c src/preview_session.c src/input.c src/seekey.h
 	@mkdir -p build
 	$(CC) $(TEST_CFLAGS) $(TEST_SRCS) tests/vendor/unity/unity.c \
 	    src/config.c src/style.c src/tui.c src/keynames.c src/window_state.c src/runtime_lock.c src/preview_session.c \

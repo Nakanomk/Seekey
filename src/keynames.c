@@ -164,16 +164,6 @@ static const IconEntry DEFAULT_ICONS[] = {
     {KEY_HOME,        "⇱"},
     {KEY_END,         "⇲"},
     {KEY_KPENTER,     "⌤"},
-    {BTN_LEFT,        "⬤"},   /* filled circle */
-    {BTN_RIGHT,       "◉"},   /* bullseye */
-    {BTN_MIDDLE,      "◎"},   /* double circle */
-};
-
-static const IconEntry SCROLL_ICONS[] = {
-    {SEEKEY_SCROLL_UP,    "▲"},
-    {SEEKEY_SCROLL_DOWN,  "▼"},
-    {SEEKEY_SCROLL_LEFT,  "◀"},
-    {SEEKEY_SCROLL_RIGHT, "▶"},
 };
 
 const char *seekey_key_icon(guint code, const SeekeyConfig *config)
@@ -189,12 +179,8 @@ const char *seekey_key_icon(guint code, const SeekeyConfig *config)
         }
     }
 
-    /* Scroll pseudo-codes. */
-    for (gsize i = 0; i < G_N_ELEMENTS(SCROLL_ICONS); i++) {
-        if (SCROLL_ICONS[i].code == code) return SCROLL_ICONS[i].icon;
-    }
-
-    /* Fall back to built-in keyboard + mouse defaults. */
+    /* Default mouse buttons and scrolling are graphics, not font glyphs. */
+    if (mouse_name != NULL) return NULL;
     for (gsize i = 0; i < G_N_ELEMENTS(DEFAULT_ICONS); i++) {
         if (DEFAULT_ICONS[i].code == code) {
             return DEFAULT_ICONS[i].icon;

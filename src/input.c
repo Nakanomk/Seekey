@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libevdev/libevdev.h>
+#include <libinput.h>
 #include <linux/input-event-codes.h>
 #include <poll.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 typedef struct {
     int fd;
     struct libevdev *dev;
+    struct libinput_device *touchpad;
     char *path;
     char *name;
     gboolean active;
@@ -25,6 +27,7 @@ struct SeekeyInput {
     SeekeyRuntimeLock *runtime_lock;
     GPtrArray *devices;
     GPtrArray *mouse_devices;
+    struct libinput *touchpad_context;
     int watch_fd;
     GThread *thread;
     GMutex lock;
@@ -61,6 +64,11 @@ static void input_device_free(gpointer data)
     InputDevice *device = data;
     if (device == NULL) {
         return;
+    }
+    if (device->touchpad != NULL) {
+        libinput_device_set_user_data(device->touchpad, NULL);
+        libinput_path_remove_device(device->touchpad);
+        libinput_device_unref(device->touchpad);
     }
     if (device->dev != NULL) {
         libevdev_free(device->dev);
@@ -101,6 +109,54 @@ static gboolean device_has_mouse_buttons(struct libevdev *dev)
     if (!libevdev_has_event_code(dev, EV_KEY, BTN_LEFT)) return FALSE;
     if (!libevdev_has_event_code(dev, EV_KEY, BTN_RIGHT)) return FALSE;
     return libevdev_has_event_type(dev, EV_REL);
+}
+
+static gboolean device_is_touchpad(struct libevdev *dev)
+{
+    if (libevdev_has_property(dev, INPUT_PROP_DIRECT) ||
+        libevdev_has_event_code(dev, EV_KEY, BTN_TOOL_PEN)) return FALSE;
+
+    return (libevdev_has_event_code(dev, EV_KEY, BTN_TOOL_FINGER) ||
+            libevdev_has_property(dev, INPUT_PROP_BUTTONPAD)) &&
+           ((libevdev_has_event_code(dev, EV_ABS, ABS_X) &&
+             libevdev_has_event_code(dev, EV_ABS, ABS_Y)) ||
+            (libevdev_has_event_code(dev, EV_ABS, ABS_MT_POSITION_X) &&
+             libevdev_has_event_code(dev, EV_ABS, ABS_MT_POSITION_Y)));
+}
+
+static int open_touchpad(const char *path, int flags, void *data)
+{
+    /* Observation only: Seekey does not need write access to input nodes. */
+    int fd = open(path, O_RDONLY | O_CLOEXEC | (flags & O_NONBLOCK));
+    return fd < 0 ? -errno : fd;
+}
+
+static void close_touchpad(int fd, void *data)
+{
+    close(fd);
+}
+
+static struct libinput_device *register_touchpad(SeekeyInput *input,
+                                                 const char *path)
+{
+    static const struct libinput_interface interface = {
+        .open_restricted = open_touchpad,
+        .close_restricted = close_touchpad,
+    };
+    if (input->touchpad_context == NULL) {
+        input->touchpad_context = libinput_path_create_context(&interface, NULL);
+        if (input->touchpad_context == NULL) return NULL;
+    }
+
+    struct libinput_device *pad = libinput_path_add_device(input->touchpad_context, path);
+    if (pad == NULL) return NULL;
+    if (!libinput_device_has_capability(pad, LIBINPUT_DEVICE_CAP_POINTER)) {
+        libinput_path_remove_device(pad);
+        return NULL;
+    }
+    if (libinput_device_config_tap_get_finger_count(pad) > 0)
+        libinput_device_config_tap_set_enabled(pad, LIBINPUT_CONFIG_TAP_ENABLED);
+    return libinput_device_ref(pad);
 }
 
 static gboolean add_device(SeekeyInput *input, const char *path)
@@ -155,7 +211,8 @@ static gboolean add_device(SeekeyInput *input, const char *path)
     return TRUE;
 }
 
-/* Like add_device but for mice — relaxed criteria, shares the fd model. */
+/* Raw mouse buttons/wheels and interpreted touchpad clicks/scrolls are
+ * mutually exclusive readers of a given pointer node. */
 static gboolean add_mouse_device(SeekeyInput *input, const char *path)
 {
     int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
@@ -165,23 +222,40 @@ static gboolean add_mouse_device(SeekeyInput *input, const char *path)
     int rc = libevdev_new_from_fd(fd, &dev);
     if (rc < 0) { close(fd); return FALSE; }
 
-    if (!device_has_mouse_buttons(dev)) {
+    struct libinput_device *pad = NULL;
+    if (device_is_touchpad(dev)) {
+        pad = register_touchpad(input, path);
+        if (pad == NULL && input->config.debug_input)
+            g_printerr("seekey: cannot initialize touchpad %s with libinput\n", path);
+    }
+    if (pad == NULL && !device_has_mouse_buttons(dev)) {
         libevdev_free(dev);
         close(fd);
         return FALSE;
     }
 
     InputDevice *device = g_new0(InputDevice, 1);
-    device->fd = fd;
-    device->dev = dev;
+    if (pad != NULL) {
+        device->touchpad = pad;
+        libinput_device_set_user_data(pad, device);
+        device->fd = -1;  /* All touchpads share the libinput poll fd. */
+    } else {
+        device->fd = fd;
+        device->dev = dev;
+    }
     device->path = g_strdup(path);
     device->active = TRUE;
     const char *name = libevdev_get_name(dev);
     device->name = g_strdup(name ? name : "mouse");
+    if (pad != NULL) {
+        libevdev_free(dev);
+        close(fd);
+    }
     g_ptr_array_add(input->mouse_devices, device);
 
     if (input->config.debug_input)
-        g_printerr("seekey: using mouse %s (%s)\n", device->path, device->name);
+        g_printerr("seekey: using %s %s (%s)\n",
+                   pad ? "touchpad" : "mouse", device->path, device->name);
     return TRUE;
 }
 
@@ -462,7 +536,7 @@ static void emit_mouse_event(SeekeyInput *input, guint code)
 }
 
 static void emit_scroll_event(SeekeyInput *input, gboolean horizontal,
-                              gint value)
+                              double value)
 {
     if (value == 0) return;
 
@@ -480,6 +554,36 @@ static void emit_scroll_event(SeekeyInput *input, gboolean horizontal,
     if (now - input->last_scroll_time[direction] <= 200000) return;
     input->last_scroll_time[direction] = now;
     emit_mouse_event(input, code);
+}
+
+static gboolean dispatch_touchpads(SeekeyInput *input)
+{
+    if (libinput_dispatch(input->touchpad_context) < 0) return FALSE;
+    struct libinput_event *event;
+    while ((event = libinput_get_event(input->touchpad_context)) != NULL) {
+        InputDevice *device = libinput_device_get_user_data(libinput_event_get_device(event));
+        if (device != NULL && device->active) {
+            enum libinput_event_type type = libinput_event_get_type(event);
+            if (type == LIBINPUT_EVENT_DEVICE_REMOVED) {
+                device->active = FALSE;
+            } else if (type == LIBINPUT_EVENT_POINTER_BUTTON) {
+                struct libinput_event_pointer *p = libinput_event_get_pointer_event(event);
+                if (libinput_event_pointer_get_button_state(p) == LIBINPUT_BUTTON_STATE_PRESSED)
+                    emit_mouse_event(input, libinput_event_pointer_get_button(p));
+            } else if (type == LIBINPUT_EVENT_POINTER_SCROLL_FINGER) {
+                struct libinput_event_pointer *p = libinput_event_get_pointer_event(event);
+                /* libinput's positive vertical axis means down; REL_WHEEL's means up. */
+                if (libinput_event_pointer_has_axis(p, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL))
+                    emit_scroll_event(input, FALSE, -libinput_event_pointer_get_scroll_value(
+                        p, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL));
+                if (libinput_event_pointer_has_axis(p, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL))
+                    emit_scroll_event(input, TRUE, libinput_event_pointer_get_scroll_value(
+                        p, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL));
+            }
+        }
+        libinput_event_destroy(event);
+    }
+    return TRUE;
 }
 
 static void handle_mouse_event(SeekeyInput *input, InputDevice *device,
@@ -641,12 +745,13 @@ static gpointer input_thread(gpointer data)
         }
         for (guint i = 0; i < input->mouse_devices->len; i++) {
             InputDevice *device = g_ptr_array_index(input->mouse_devices, i);
-            if (device->active) device_count++;
+            if (device->active && device->fd >= 0) device_count++;
         }
 
         int watch_fd = input->watch_fd;
         gboolean watch_active = watch_fd >= 0;
-        guint total = device_count + (watch_active ? 1 : 0);
+        guint touchpad_index = device_count + (watch_active ? 1 : 0);
+        guint total = touchpad_index + (input->touchpad_context != NULL);
         struct pollfd *fds = g_new0(struct pollfd, total);
         InputDevice **polled_devices = g_new0(InputDevice *, device_count);
         gboolean *mouse_flags = g_new0(gboolean, device_count);
@@ -660,7 +765,7 @@ static gpointer input_thread(gpointer data)
         }
         for (guint i = 0; i < input->mouse_devices->len; i++) {
             InputDevice *device = g_ptr_array_index(input->mouse_devices, i);
-            if (!device->active) continue;
+            if (!device->active || device->fd < 0) continue;
             fds[index] = (struct pollfd){.fd = device->fd, .events = POLLIN};
             polled_devices[index] = device;
             mouse_flags[index] = TRUE;
@@ -671,6 +776,9 @@ static gpointer input_thread(gpointer data)
             fds[watch_index] = (struct pollfd){
                 .fd = watch_fd, .events = POLLIN};
         }
+        if (input->touchpad_context != NULL)
+            fds[touchpad_index] = (struct pollfd){
+                .fd = libinput_get_fd(input->touchpad_context), .events = POLLIN};
 
         int rc = poll(fds, (nfds_t)total, 250);
         gboolean needs_rescan =
@@ -698,6 +806,19 @@ static gpointer input_thread(gpointer data)
                     if (!is_mouse) keyboard_state_dirty = TRUE;
                     needs_rescan = TRUE;
                 }
+            }
+
+            if (input->touchpad_context != NULL && fds[touchpad_index].revents &&
+                ((fds[touchpad_index].revents & (POLLERR | POLLHUP | POLLNVAL)) ||
+                 !dispatch_touchpads(input))) {
+                /* Release device references before destroying their context.
+                 * The next scan reopens any pads that are still present. */
+                for (guint i = input->mouse_devices->len; i > 0; i--) {
+                    InputDevice *device = g_ptr_array_index(input->mouse_devices, i - 1);
+                    if (device->touchpad != NULL)
+                        g_ptr_array_remove_index_fast(input->mouse_devices, i - 1);
+                }
+                input->touchpad_context = libinput_unref(input->touchpad_context);
             }
 
             if (watch_active && fds[watch_index].revents != 0) {
@@ -798,6 +919,8 @@ void seekey_input_free(SeekeyInput *input)
     g_ptr_array_free(input->devices, TRUE);
     if (input->mouse_devices != NULL)
         g_ptr_array_free(input->mouse_devices, TRUE);
+    if (input->touchpad_context != NULL)
+        libinput_unref(input->touchpad_context);
     seekey_runtime_lock_free(input->runtime_lock);
     g_mutex_clear(&input->lock);
     g_free(input);

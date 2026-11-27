@@ -2,7 +2,7 @@
 # install.sh - install seekey for any Wayland environment
 #
 # What it does:
-#   1. Detect the distro and ensure build dependencies (gtk4, libevdev,
+#   1. Detect the distro and ensure build dependencies (gtk4, libevdev, libinput,
 #      ncursesw, json-glib, gettext, pkg-config, gcc, make) are installed.
 #   2. Build seekey with `make`.
 #   3. Install the binary to ~/.local/bin (or /usr/local/bin with --system).
@@ -142,39 +142,40 @@ PM_INSTALL_DEPS_ARGS=()
 case "$PM" in
     pacman)
         PM_INSTALL_DEPS_ARGS=(pacman -S --needed --noconfirm
-                              gtk4 libevdev ncurses json-glib
+                              gtk4 libevdev libinput ncurses json-glib
                               gettext pkgconf gcc make)
         ;;
     dnf)
         PM_INSTALL_DEPS_ARGS=(dnf install -y
-                              gtk4-devel libevdev-devel ncurses-devel
+                              gtk4-devel libevdev-devel libinput-devel ncurses-devel
                               json-glib-devel pkgconf-pkg-config
                               gettext gcc make gtk4-layer-shell-devel)
         ;;
     apt)
         PM_INSTALL_DEPS_ARGS=(apt install -y
-                              libgtk-4-dev libevdev-dev libncurses-dev
+                              libgtk-4-dev libevdev-dev libinput-dev libncurses-dev
                               libjson-glib-dev gettext pkg-config build-essential)
         ;;
     zypper)
         PM_INSTALL_DEPS_ARGS=(zypper install -y
-                              gtk4-devel libevdev-devel ncurses-devel
+                              gtk4-devel libevdev-devel libinput-devel ncurses-devel
                               json-glib-devel gettext-tools pkg-config gcc make)
         ;;
     apk)
-        PM_INSTALL_DEPS_ARGS=(apk add gtk4-dev libevdev-dev
+        PM_INSTALL_DEPS_ARGS=(apk add gtk4-dev libevdev-dev libinput-dev
                               ncurses-dev json-glib-dev pkgconf
                               gettext gcc make musl-dev)
         ;;
     xbps-install)
         PM_INSTALL_DEPS_ARGS=(xbps-install -y
-                              gtk4-devel libevdev-devel ncurses-devel
+                              gtk4-devel libevdev-devel libinput-devel ncurses-devel
                               json-glib-devel gettext pkg-config gcc make)
         ;;
     *)
         warn "Unknown package manager. Please install these manually:"
         warn "  - gtk4 (development files)"
         warn "  - libevdev (development files)"
+        warn "  - libinput >= 1.19 (development files)"
         warn "  - ncursesw (development files)"
         warn "  - json-glib (development files)"
         warn "  - gettext, pkg-config, gcc, make"
@@ -188,7 +189,7 @@ check_build_deps() {
     for tool in pkg-config make gcc xgettext msgmerge msgfmt; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
-    local common_deps=(gtk4 libevdev ncursesw json-glib-1.0)
+    local common_deps=(gtk4 libevdev 'libinput >= 1.19' ncursesw json-glib-1.0)
     if [[ "$PM" == "dnf" ]]; then
         common_deps+=(gtk4-layer-shell-0)
     fi

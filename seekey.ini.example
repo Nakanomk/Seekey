@@ -57,8 +57,8 @@ merge-repeats=true
 # added (so "Ctrl" becomes "Ctrl + C" instead of two separate bubbles).
 merge-modifiers=true
 
-# Show mouse button clicks and scroll events as bubbles (default off).
-# Set to true to overlay mouse activity; leave false for keyboard-only.
+# Show mouse clicks/wheel and touchpad clicks, taps and scrolling as bubbles.
+# Pointer movement is not shown. Leave false for keyboard-only display.
 show-mouse=false
 
 [style]
@@ -120,6 +120,8 @@ placeholder-border-color=alpha(#ffffff, 0.14)
 #   Key names match the labels shown in bubbles (Backspace, Enter, Space,
 #   Tab, Esc, Delete, arrow keys, etc.). Remove this section or comment
 #   out every key to use the built-in defaults.
+#   Mouse buttons and scrolling use drawn icons by default. Set LMB, RMB,
+#   MMB or Scroll↑/Scroll↓/Scroll←/Scroll→ here only to replace them with text.
 # ---------------------------------------------------------------------------
 [icons]
 Backspace=⌫

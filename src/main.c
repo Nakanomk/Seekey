@@ -321,12 +321,12 @@ static void populate_preview_bubbles(AppState *state)
 
     remove_placeholder(state);
     for (guint i = 0; i < sample_count && i < state->config.max_items; i++) {
-        GtkWidget *label = gtk_label_new(samples[i]);
-        gtk_label_set_single_line_mode(GTK_LABEL(label), TRUE);
-        gtk_widget_add_css_class(label, "key-bubble");
+        GtkWidget *label = seekey_bubble_label_new(samples[i]);
         if (typing_samples[i]) gtk_widget_add_css_class(label, "typing-bubble");
         gtk_box_append(GTK_BOX(state->box), label);
     }
+    if (state->config.show_mouse && sample_count < state->config.max_items)
+        gtk_box_append(GTK_BOX(state->box), seekey_mouse_bubble_new(&state->config, BTN_LEFT));
 }
 
 static guint schedule_bubble_timeout(AppState *state, GtkWidget *widget, guint id)
@@ -344,7 +344,7 @@ static guint schedule_bubble_timeout(AppState *state, GtkWidget *widget, guint i
 
 static gboolean try_merge_last_bubble(AppState *state, const char *combo)
 {
-    if (state->last_bubble == NULL ||
+    if (state->last_bubble == NULL || state->last_bubble_count == 0 ||
         state->last_bubble_fading ||
         gtk_widget_get_parent(state->last_bubble) == NULL ||
         g_strcmp0(state->last_combo, combo) != 0) {
@@ -397,18 +397,15 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
         state->typing_remove_timeout_id = 0;
         detach_last_bubble(state);
 
-        const char *icon = seekey_key_icon(event->code, &state->config);
-        GtkWidget *label = gtk_label_new(icon ? icon : event->name);
-        gtk_label_set_single_line_mode(GTK_LABEL(label), TRUE);
-        gtk_widget_add_css_class(label, "key-bubble");
-        gtk_box_append(GTK_BOX(state->box), label);
+        GtkWidget *bubble = seekey_mouse_bubble_new(&state->config, event->code);
+        gtk_box_append(GTK_BOX(state->box), bubble);
         trim_bubbles(state);
 
         /* Don't merge mouse repeats — each click is its own bubble. */
-        state->last_bubble = label;
+        state->last_bubble = bubble;
         state->last_bubble_id = ++state->next_id;
         state->last_bubble_timeout_id =
-            schedule_bubble_timeout(state, label, state->last_bubble_id);
+            schedule_bubble_timeout(state, bubble, state->last_bubble_id);
         return;
     }
 
@@ -473,10 +470,9 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
             cancel_active_typing_idle_timeout(state);
             clear_typing_group(state);
             state->typing_remove_timeout_id = 0;
-            state->typing_label = gtk_label_new("");
+            state->typing_label = seekey_bubble_label_new("");
             if (g_strcmp0(state->config.typing_display, "full") == 0)
                 state->typing_text = g_string_new(NULL);
-            gtk_label_set_single_line_mode(GTK_LABEL(state->typing_label), TRUE);
             gtk_label_set_ellipsize(GTK_LABEL(state->typing_label), PANGO_ELLIPSIZE_END);
             /* typing-max-width is in CSS pixels; convert to chars using a
              * rough heuristic (≈ pixel / 0.55 / font-size). For default
@@ -489,7 +485,6 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
                                                   (gint)chars);
                 }
             }
-            gtk_widget_add_css_class(state->typing_label, "key-bubble");
             gtk_widget_add_css_class(state->typing_label, "typing-bubble");
             gtk_box_append(GTK_BOX(state->box), state->typing_label);
             trim_bubbles(state);
@@ -517,10 +512,8 @@ static void on_key_event(const KeyEventMessage *event, gpointer user_data)
         return;
     }
 
-    GtkWidget *label = gtk_label_new(event->combo);
-    gtk_label_set_single_line_mode(GTK_LABEL(label), TRUE);
+    GtkWidget *label = seekey_bubble_label_new(event->combo);
     gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
-    gtk_widget_add_css_class(label, "key-bubble");
     gtk_box_append(GTK_BOX(state->box), label);
     trim_bubbles(state);
 
@@ -644,9 +637,7 @@ static void activate(GtkApplication *app, gpointer user_data)
     gtk_widget_add_css_class(box, "overlay-root");
     gtk_window_set_child(GTK_WINDOW(window), box);
 
-    state->placeholder = gtk_label_new(state->config.placeholder_text);
-    gtk_label_set_single_line_mode(GTK_LABEL(state->placeholder), TRUE);
-    gtk_widget_add_css_class(state->placeholder, "key-bubble");
+    state->placeholder = seekey_bubble_label_new(state->config.placeholder_text);
     gtk_widget_add_css_class(state->placeholder, "placeholder-bubble");
     gtk_box_append(GTK_BOX(state->box), state->placeholder);
     if (state->config.preview_child) populate_preview_bubbles(state);
