@@ -13,7 +13,7 @@
 ![Language: C](https://img.shields.io/badge/Language-C-00599C.svg)
 ![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%2F%20Wayland-FCC624.svg)
 ![GTK4](https://img.shields.io/badge/GTK-4-7FE7FE.svg)
-![Version](https://img.shields.io/badge/version-0.3.0-44cc11.svg)
+![Version](https://img.shields.io/badge/version-0.3.1-44cc11.svg)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
